@@ -1,36 +1,221 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 💍 WedPlan – Wedding Service Marketplace
 
-## Getting Started
+<p align="center">
 
-First, run the development server:
+  **A Modern Platform to Plan Your Perfect Wedding**
+
+  Discover wedding services, connect with professional vendors, and manage your wedding bookings — all in one place.
+
+</p>
+
+---
+
+## 🌐 Project Overview
+
+**WedPlan** is a full-stack wedding service marketplace designed to simplify the wedding planning experience. It connects customers with professional wedding service providers through a modern, user-friendly platform.
+
+Customers can explore wedding services, compare vendors, make bookings, and complete secure payments. Vendors can manage their services and booking requests, while administrators oversee the entire marketplace.
+
+The frontend is built with **Next.js, TypeScript, Tailwind CSS, and ShadCN UI**, providing a responsive and interactive user experience.
+
+## ✨ Key Features
+
+### 👤 Customer Features
+- Browse and discover available wedding services.
+- Search services by keywords.
+- Filter and sort services based on relevant criteria.
+- View detailed service information and vendor profiles.
+- Book services and manage booking requests.
+- Track booking statuses: Pending, Accepted, Rejected, and Cancelled.
+- Complete secure payments through Stripe.
+- Manage personal profile information.
+- View booking and transaction history.
+
+### 🏪 Vendor Features
+- Access a dedicated vendor dashboard.
+- Create and manage wedding services.
+- Upload service images.
+- Submit services for administrator approval.
+- Edit and delete existing services.
+- Manage incoming booking requests.
+- Accept or reject booking requests.
+- Track service and booking activities.
+- Manage subscription plans.
+
+### 🛡️ Admin Features
+- Access the administrator dashboard.
+- Manage customers and vendors.
+- Review and approve pending services.
+- Manage marketplace services.
+- Monitor bookings and transactions.
+- Manage vendor access and platform activities.
+
+### 🔐 Authentication & Security
+- Email and password authentication.
+- Google OAuth authentication.
+- Better Auth integration.
+- JWT-based authentication.
+- Role-based dashboard access.
+- Protected routes and authenticated pages.
+- Secure user session management.
+- Role-based interface and navigation.
+
+### 💳 Payment Experience
+- Stripe Checkout integration.
+- Secure payment flow.
+- Premium subscription support.
+- Payment status and transaction information.
+
+### 🎨 UI & User Experience
+- Fully responsive design.
+- Modern and clean interface.
+- Reusable UI components.
+- Interactive animations.
+- Smooth navigation.
+- Loading states and error handling.
+- Toast notifications for user feedback.
+
+---
+
+## 🛠️ Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| Next.js | Frontend Framework |
+| React.js | UI Development |
+| TypeScript | Type Safety |
+| Tailwind CSS | Styling |
+| ShadCN UI | UI Components |
+| Better Auth | Authentication |
+| JWT | Secure Authentication |
+| Stripe | Online Payments |
+| Framer Motion | Animations |
+| Lucide React | Icons |
+| Axios / Fetch | API Communication |
+
+---
+
+## 📁 Project Structure
+
+```text
+WedPlan-Client/
+│
+├── public/
+│
+├── src/
+│   ├── app/
+│   │   ├── (auth)/
+│   │   ├── (dashboard)/
+│   │   ├── services/
+│   │   ├── bookings/
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   │
+│   ├── components/
+│   │   ├── ui/
+│   │   ├── shared/
+│   │   ├── auth/
+│   │   └── dashboard/
+│   │
+│   ├── hooks/
+│   ├── lib/
+│   ├── services/
+│   ├── types/
+│   └── utils/
+│
+├── .env.local
+├── next.config.ts
+├── package.json
+└── README.md
+```
+
+*Note: The structure represents the intended organization; actual folders may vary.*
+
+---
+
+## ⚙️ Installation & Setup
+
+### 1. Clone the Repository
+
+```bash
+git clone YOUR_FRONTEND_REPOSITORY_URL
+```
+
+### 2. Navigate to the Project
+
+```bash
+cd WedPlan-Client
+```
+
+### 3. Install Dependencies
+
+```bash
+npm install
+```
+
+### 4. Configure Environment Variables
+
+Create a `.env.local` file in the root directory.
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+Add any additional public configuration required by your actual application.
+
+### 5. Start the Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will be available at:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🔗 Backend Integration
 
-To learn more about Next.js, take a look at the following resources:
+WedPlan Client communicates with the Express.js backend through RESTful APIs.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Backend:** `http://localhost:5000`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The frontend integrates with backend services for:
 
-## Deploy on Vercel
+- User authentication and authorization.
+- Wedding service management.
+- Booking management.
+- User and vendor management.
+- Payment processing.
+- Transaction management.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 👥 User Roles
+
+| Role | Access |
+|---|---|
+| Customer | Browse services and manage bookings |
+| Vendor | Manage services and booking requests |
+| Admin | Manage users, vendors, services and transactions |
+
+---
+
+## 🚀 Project Goals
+
+- Simplify the wedding planning process.
+- Connect customers with professional wedding vendors.
+- Provide a centralized wedding service marketplace.
+- Ensure secure authentication and payment processing.
+- Deliver a smooth and responsive user experience.
+
+---
+
+<p align="center">
+
+  **WedPlan – Making Every Wedding Special. ❤️**
+
+</p>
