@@ -1,31 +1,45 @@
-
 import { authClient } from "@/lib/auth-client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL!;
+const getApiUrl = () => {
+  return (
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "http://localhost:5000"
+  );
+};
 
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const { data, error } = await authClient.token();
+  let token: string | undefined;
 
-  if (error || !data?.token) {
-    throw new Error("Authentication required. Please sign in again.");
+  try {
+    const { data } = await authClient.token();
+    if (data?.token) {
+      token = data.token;
+    }
+  } catch {
+    // Session cookie will still be included via credentials: "include"
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers as Record<string, string> | undefined),
+  };
+
+  const response = await fetch(`${getApiUrl()}${endpoint}`, {
     ...options,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-      Authorization: `Bearer ${data.token}`,
-    },
+    headers,
   });
 
   if (!response.ok) {
-    const result = await response.json().catch(() => null);
-    throw new Error(result?.message || `Request failed: ${response.status}`);
+    const result = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(result?.message || `Request failed with status ${response.status}`);
   }
 
   return response.json() as Promise<T>;

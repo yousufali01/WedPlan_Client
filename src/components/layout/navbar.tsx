@@ -75,13 +75,19 @@ function UserAvatar({ size = "sm" }: { size?: "sm" | "default" }) {
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isAuthenticated, signOut } = useAuth();
+  const { user, isAuthenticated, signOut, role } = useAuth();
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
-  const handleSignOut = () => {
-    signOut();
+  const dashboardHref =
+    role === "admin"
+      ? siteConfig.dashboards.admin
+      : role === "vendor"
+        ? siteConfig.dashboards.vendor
+        : siteConfig.dashboards.customer;
+
+  const handleSignOut = async () => {
     setMobileOpen(false);
-    router.push(siteConfig.routes.home);
+    await signOut();
   };
 
   return (
@@ -127,13 +133,20 @@ export function Navbar() {
                 {/* User name and profile image */}
                 <div className="flex items-center gap-2.5 px-1.5 py-1.5">
                   <UserAvatar size="default" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{user.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium">{user.name}</p>
+                      {user.role && (
+                        <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                          {user.role}
+                        </span>
+                      )}
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push(siteConfig.routes.dashboard)}>
+                <DropdownMenuItem onClick={() => router.push(dashboardHref)}>
                   <LayoutDashboard aria-hidden="true" />
                   Dashboard
                 </DropdownMenuItem>
@@ -207,8 +220,15 @@ export function Navbar() {
                 <>
                   <div className="flex items-center gap-2.5 pb-2">
                     <UserAvatar size="default" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{user.name}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-medium">{user.name}</p>
+                        {user.role && (
+                          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                            {user.role}
+                          </span>
+                        )}
+                      </div>
                       <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                     </div>
                   </div>
@@ -216,7 +236,7 @@ export function Navbar() {
                     variant="outline"
                     render={
                       <Link
-                        href={siteConfig.routes.dashboard}
+                        href={dashboardHref}
                         onClick={() => setMobileOpen(false)}
                         className="w-full"
                       />

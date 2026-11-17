@@ -1,53 +1,53 @@
-
 "use client";
 
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { useAuth, type UserRole } from "@/hooks/use-auth";
+import { siteConfig } from "@/config/site";
 
 interface Props {
   children: ReactNode;
   allowedRoles?: UserRole[];
 }
 
-export default function ProtectedRoute({
-  children,
-  allowedRoles,
-}: Props) {
+export default function ProtectedRoute({ children, allowedRoles }: Props) {
   const router = useRouter();
-  const { user, role, isPending, isAuthenticated } = useAuth();
+  const { role, isPending, isAuthenticated } = useAuth();
 
   useEffect(() => {
     if (isPending) return;
 
     if (!isAuthenticated) {
-      router.replace("/signin");
+      router.replace(siteConfig.routes.signIn);
       return;
     }
 
     if (allowedRoles && (!role || !allowedRoles.includes(role))) {
-      router.replace("/dashboard");
+      const fallback =
+        role === "admin"
+          ? siteConfig.dashboards.admin
+          : role === "vendor"
+            ? siteConfig.dashboards.vendor
+            : siteConfig.dashboards.customer;
+      router.replace(fallback);
     }
-  }, [
-    isPending,
-    isAuthenticated,
-    role,
-    allowedRoles,
-    router,
-  ]);
+  }, [isPending, isAuthenticated, role, allowedRoles, router]);
 
   if (isPending || !isAuthenticated) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <p>Checking authentication...</p>
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
+        <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
+        <p className="text-sm text-muted-foreground">Checking authentication…</p>
       </div>
     );
   }
 
   if (allowedRoles && (!role || !allowedRoles.includes(role))) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <p>Checking permissions...</p>
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
+        <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
+        <p className="text-sm text-muted-foreground">Verifying permissions…</p>
       </div>
     );
   }

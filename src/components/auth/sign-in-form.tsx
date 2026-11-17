@@ -83,77 +83,32 @@ export function SignInForm() {
 
   /* Dashboard Redirect */
 
-  const getDashboardPath = (user: {
-    role?: string | null;
-    accountRole?: string | null;
-  }) => {
+  const getDashboardPath = (user: { role?: string | null }) => {
     if (user.role === "admin") {
       return siteConfig.dashboards.admin;
     }
-
-    return user.accountRole === "vendor"
-      ? siteConfig.dashboards.vendor
-      : siteConfig.dashboards.customer;
+    if (user.role === "vendor") {
+      return siteConfig.dashboards.vendor;
+    }
+    return siteConfig.dashboards.customer;
   };
 
-  /* Google OAuth Session Handling */
+  /* If already signed in, redirect to the appropriate dashboard */
 
   React.useEffect(() => {
     if (isPending || !session?.user) return;
-
-    let cancelled = false;
-
-    const finishGoogleSignIn = async () => {
-      const requestedRole = new URLSearchParams(
-        window.location.search
-      ).get("newUserRole");
-
-      let user = session.user as typeof session.user & {
-        accountRole?: string;
-      };
-
-      if (
-        requestedRole === "customer" ||
-        requestedRole === "vendor"
-      ) {
-        const { error } = await authClient.updateUser({
-          accountRole: requestedRole,
-        } as never);
-
-        if (error) {
-          toast.error("Could not save your account type", {
-            description:
-              error.message || "Please contact support.",
-          });
-
-          return;
-        }
-
-        user = {
-          ...user,
-          accountRole: requestedRole,
-        };
-      }
-
-      if (!cancelled) {
-        router.replace(getDashboardPath(user));
-      }
-    };
-
-    void finishGoogleSignIn();
-
-    return () => {
-      cancelled = true;
-    };
+    const userRole = (session.user as { role?: string }).role;
+    router.replace(getDashboardPath({ role: userRole }));
   }, [isPending, session, router]);
 
   /* Google Sign In */
 
   const handleGoogleSignIn = async () => {
     try {
+      const callbackURL = `${window.location.origin}/auth/callback`;
       const { error } = await authClient.signIn.social({
         provider: "google",
-        callbackURL: siteConfig.routes.signIn,
+        callbackURL,
       });
 
       if (error) {
@@ -164,9 +119,7 @@ export function SignInForm() {
     } catch (error) {
       toast.error("Google sign-in failed", {
         description:
-          error instanceof Error
-            ? error.message
-            : "Please try again.",
+          error instanceof Error ? error.message : "Please try again.",
       });
     }
   };
@@ -176,9 +129,8 @@ export function SignInForm() {
   const onSubmit = handleSubmit(async (values) => {
     try {
       const { data, error } = await authClient.signIn.email({
-        email: values.email,
+        email: values.email.trim(),
         password: values.password,
-        callbackURL: siteConfig.routes.signIn,
       });
 
       if (error || !data?.user) {
@@ -197,18 +149,17 @@ export function SignInForm() {
         return;
       }
 
-      const account = data.user as typeof data.user & {
-        accountRole?: string;
-      };
+      const userRole = (data.user as { role?: string }).role;
+      const firstName = data.user.name ? data.user.name.split(" ")[0] : "there";
 
       toast.success(
-        `Welcome back, ${account.name.split(" ")[0]}!`,
+        `Welcome back, ${firstName}!`,
         {
           description: "You have signed in successfully.",
         }
       );
 
-      router.replace(getDashboardPath(account));
+      router.replace(getDashboardPath({ role: userRole }));
     } catch (error) {
       toast.error("Could not sign you in", {
         description:

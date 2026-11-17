@@ -1,36 +1,46 @@
-
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
+import { Loader2, LogOut } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const { signOut } = useAuth();
 
   const handleLogout = async () => {
     setLoading(true);
-
-    const { error } = await authClient.signOut();
-
-    if (error) {
-      alert(error.message);
+    try {
+      await signOut();
+      toast.success("Logged out successfully");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to log out"
+      );
       setLoading(false);
-      return;
     }
-
-    router.replace("/signin");
-    router.refresh();
   };
 
   return (
-    <button
+    <Button
+      variant="destructive"
+      size="sm"
       onClick={handleLogout}
       disabled={loading}
-      className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50"
     >
-      {loading ? "Logging out..." : "Logout"}
-    </button>
+      {loading ? (
+        <>
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          Logging out…
+        </>
+      ) : (
+        <>
+          <LogOut className="size-4" aria-hidden="true" />
+          Logout
+        </>
+      )}
+    </Button>
   );
 }

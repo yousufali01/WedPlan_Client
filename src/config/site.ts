@@ -9,15 +9,18 @@ export const siteConfig = {
     signIn: "/signin",
     signUp: "/signup",
     dashboard: "/dashboard",
+    adminDashboard: "/admin/dashboard",
+    vendorDashboard: "/vendor/dashboard",
+    authCallback: "/auth/callback",
     budget: "/dashboard/budget",
     checklist: "/dashboard/checklist",
     bookings: "/dashboard/bookings",
     profile: "/profile",
   },
-  // Post-login landing route per account role. Vendor and customer share
-  // the planning dashboard until the role-specific dashboard module lands.
+  // Post-login landing route per account role.
   dashboards: {
-    vendor: "/dashboard",
+    admin: "/admin/dashboard",
+    vendor: "/vendor/dashboard",
     customer: "/dashboard",
   },
   contact: {

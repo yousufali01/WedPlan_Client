@@ -323,12 +323,11 @@ export function SignUpForm() {
     }
 
     try {
+      const callbackURL = `${window.location.origin}/auth/callback?role=${role}`;
       const { error } = await authClient.signIn.social({
         provider: "google",
-
-        callbackURL: siteConfig.routes.signIn,
-
-        newUserCallbackURL: `${siteConfig.routes.signIn}?newUserRole=${role}`,
+        callbackURL,
+        newUserCallbackURL: callbackURL,
       });
 
       if (error) {
@@ -357,17 +356,10 @@ export function SignUpForm() {
     try {
       const { data, error } = await authClient.signUp.email({
         name: values.name.trim(),
-
         email: values.email.trim(),
-
         password: values.password,
-
         image: avatarUrl ?? undefined,
-
-        accountRole: values.role,
-
-        callbackURL: siteConfig.routes.signIn,
-      } as never);
+      });
 
       if (error || !data?.user) {
         toast.error("Could not create your account", {
@@ -378,11 +370,25 @@ export function SignUpForm() {
         return;
       }
 
+      // If registered as vendor, submit the vendor application
+      if (values.role === "vendor") {
+        try {
+          const { apiRequest } = await import("@/lib/api");
+          await apiRequest("/api/v1/profile/apply-vendor", { method: "POST" });
+        } catch (err) {
+          console.error("Vendor application request:", err);
+        }
+      }
+
       toast.success("Welcome to WedPlan!", {
         description: "Your account has been created successfully.",
       });
 
-      router.replace(siteConfig.dashboards[values.role]);
+      if (values.role === "vendor") {
+        router.replace(siteConfig.dashboards.vendor);
+      } else {
+        router.replace(siteConfig.dashboards.customer);
+      }
     } catch (error) {
       toast.error("Registration failed", {
         description:

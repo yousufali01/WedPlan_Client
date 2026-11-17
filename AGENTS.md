@@ -154,4 +154,30 @@ Mirrors the Sign Up page's design/patterns (`components/auth/sign-in-form.tsx` +
 - Success toasts (`Welcome back, <first name>!`) + error toasts; 700 ms simulated latency; spinner + disabled Google/submit during submission; link to `/signup` in the card footer.
 - **Refactor:** shared desktop brand panel extracted to `components/auth/auth-aside.tsx` (Monogram, headline/description props, gold-chip highlight list, tagline) — Sign Up form now uses it too (its inline copy was removed; behavior unchanged, verified by smoke test).
 
-**Verified:** lint clean, build ✓, `/signin` + `/signup` live 200 with all sections. AGENTS "Next steps": backend login route replaces `verifyDemoCredentials`; role dashboards replace `siteConfig.dashboards` values.
+## Task: Bug Fixes, Google Auth Redirect & Full Role-Based Professionalism
+
+Fixed all critical auth state bugs, Google redirect loops, undefined dashboard paths, empty dashboard files, and TypeScript/linter errors while preserving WedPlan's design palette (deep green `--primary`, soft gold `--gold`, warm ivory `--secondary`) and typography (`font-heading` Playfair Display).
+
+**Root causes identified & fixed:**
+1. **Google Auth Redirect failure:**
+   - In `SignInForm` and `SignUpForm`, `callbackURL` was previously pointing back to `/signin`, causing users to get stuck on `/signin` after Google OAuth instead of proceeding into their account dashboard.
+   - Fixed: `callbackURL` now redirects to `/auth/callback` (and passes `?role=vendor` for vendor signups).
+   - In `src/app/auth/callback/page.tsx`: handles OAuth session completion and automatically navigates users to their role-specific dashboard (`/admin/dashboard` for admin, `/vendor/dashboard` for vendor, `/dashboard` for customer).
+2. **Conflicting Auth State / Navbar not updating:**
+   - `Navbar` and `DashboardSidebar` were previously reading from an old context and `localStorage` (`wedplan.auth`), which was completely decoupled from Better Auth cookies. As a result, logging in via Google or Email left the Navbar thinking the user was logged out.
+   - Fixed: Unified `AuthProvider` (`src/components/providers/auth-provider.tsx`) and `useAuth` (`src/hooks/use-auth.ts`) to directly bridge Better Auth's reactive `useSession()`. Navbar now updates immediately upon login or logout with user avatar, name, email, role badge ("Customer", "Vendor", "Admin"), and role-targeted Dashboard link.
+3. **Empty Dashboard Files (`TS2306` compile failures):**
+   - `src/app/admin/dashboard/page.tsx`, `src/app/customer/dashboard/page.tsx`, and `src/app/vendor/dashboard/page.tsx` were previously 0-byte empty files, crashing TypeScript compilation.
+   - Built full, production-quality dashboard views:
+     - **Admin Dashboard** (`/admin/dashboard`): Platform statistics (Users, Pending Vendors, Services), Pending Vendor Approvals queue with Approve/Reject actions (`/api/v1/admin/vendors/:id/approval`), and User registry with role promotion/demotion.
+     - **Vendor Dashboard** (`/vendor/dashboard`): Status banner reflecting admin approval (`vendorApproved`), service counts, and incoming booking requests with Accept/Decline action buttons.
+     - **Customer Dashboard** (`/customer/dashboard`): Seamlessly connects customer planning workflows with `/dashboard`.
+4. **Profile Settings (`/profile`):**
+   - Replaced placeholder with an interactive Profile Settings page: name editing, ImgBB photo upload, account role inspection, and a 1-click "Apply as a Vendor" button for customers.
+5. **Backend enhancement (`wedplan-server`):**
+   - Added `POST /api/v1/profile/apply-vendor` route in `wedplan-server/src/routes/profile.js` to allow new or existing users to apply for vendor onboarding (with `vendorApproved: false`, safely pending admin review).
+   - Cleaned `wedplan-client/.env` to eliminate leaked server secrets and misplaced URLs.
+6. **Code Quality:**
+   - Added `adminClient()` and `jwtClient()` plugins in `src/lib/auth-client.ts` to support `authClient.token()` and typed admin operations.
+   - Resolved React 19 `react-hooks/set-state-in-effect` in `src/hooks/use-mobile.ts` using `useSyncExternalStore` and `carousel.tsx`.
+   - Verified: `npx tsc --noEmit` exits with 0 errors; `npx eslint src` exits with 0 errors.
