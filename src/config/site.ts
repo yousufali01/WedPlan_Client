@@ -14,6 +14,12 @@ export const siteConfig = {
     bookings: "/dashboard/bookings",
     profile: "/profile",
   },
+  // Post-login landing route per account role. Vendor and customer share
+  // the planning dashboard until the role-specific dashboard module lands.
+  dashboards: {
+    vendor: "/dashboard",
+    customer: "/dashboard",
+  },
   contact: {
     email: "hello@wedplan.com",
     phone: "+880 1700-000000",

@@ -142,3 +142,16 @@ User provided the WedPlan brand logo (WP monogram: deep-green serif W + gold ser
 - Design: split layout — left brand panel (hidden < lg: big Monogram, Playfair headline, gold-chip highlight list, italic tagline), right form card; section bg `bg-gradient-to-b from-secondary/60 via-background to-accent/15` (subtle, allowed by this module's spec); h-10 inputs, h-11 submit; fully responsive.
 
 **Verified:** lint clean (only the 2 pre-existing scaffold errors), build ✓ 12 static routes, live smoke test of `/signup` — all sections present. **Note:** user's own dev server occupies port 3000 — smoke-test against it or use another port for `next start`.
+
+## Task: Sign In page + demo credential store
+
+Mirrors the Sign Up page's design/patterns (`components/auth/sign-in-form.tsx` + `app/signin/page.tsx`):
+
+- **Fields:** Email + Password with the same show/hide Eye toggle, inline zod errors, h-10 inputs. No criteria checklist on sign-in (only "required" validation).
+- **Credential Login (frontend-only, same decision as Sign Up):** NEW `src/lib/demo-auth.ts` — the demo account registry in `localStorage` (`wedplan.users`). `registerDemoAccount()` (called from the Sign Up submit) stores accounts with the password as a **SHA-256 hash** (crypto.subtle, never plain text); `verifyDemoCredentials()` is the stand-in for `POST /api/auth/login`, returning `{ ok: false, reason: "not-found" | "wrong-password" }` → mapped to error toasts ("No account found" toast carries a **Sign Up action button**; "Incorrect password"). Replaced entirely by the backend/Better Auth module later — nothing else depends on this file.
+- **Google Login:** same 4-color G + `toast.info("coming soon")` mount point.
+- **Redirect by role:** `siteConfig.dashboards = { vendor: "/dashboard", customer: "/dashboard" }` — the single place to change once role-specific dashboards exist. Both sign-in and sign-up now redirect through this map (sign-up submit also registers the demo account so sign-in round-trips work: sign up → sign out → sign in with same creds → correct role landing).
+- Success toasts (`Welcome back, <first name>!`) + error toasts; 700 ms simulated latency; spinner + disabled Google/submit during submission; link to `/signup` in the card footer.
+- **Refactor:** shared desktop brand panel extracted to `components/auth/auth-aside.tsx` (Monogram, headline/description props, gold-chip highlight list, tagline) — Sign Up form now uses it too (its inline copy was removed; behavior unchanged, verified by smoke test).
+
+**Verified:** lint clean, build ✓, `/signin` + `/signup` live 200 with all sections. AGENTS "Next steps": backend login route replaces `verifyDemoCredentials`; role dashboards replace `siteConfig.dashboards` values.

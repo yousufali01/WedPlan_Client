@@ -8,24 +8,23 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
-  CalendarCheck,
   CircleCheck,
   Eye,
   EyeOff,
   HeartHandshake,
   ImagePlus,
-  ListChecks,
   Loader2,
   Store,
-  Wallet,
   X,
 } from "lucide-react";
 
 import { Logo, Monogram } from "@/components/layout/logo";
+import { AuthAside } from "@/components/auth/auth-aside";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { writeSession } from "@/lib/auth-session";
+import { registerDemoAccount } from "@/lib/demo-auth";
 import { siteConfig } from "@/config/site";
 import { cn } from "cn";
 
@@ -66,29 +65,6 @@ const roleOptions = [
     label: "Customer",
     description: "Discover trusted vendors and plan your big day.",
     icon: HeartHandshake,
-  },
-] as const;
-
-const highlights = [
-  {
-    icon: Store,
-    title: "For vendors",
-    text: "put your services in front of couples actively planning.",
-  },
-  {
-    icon: Wallet,
-    title: "Budget tools",
-    text: "track every expense against your plan, category by category.",
-  },
-  {
-    icon: CalendarCheck,
-    title: "Bookings",
-    text: "manage quotes, confirmations and payments in one place.",
-  },
-  {
-    icon: ListChecks,
-    title: "Checklist",
-    text: "keep every task on schedule from engagement to aisle.",
   },
 ] as const;
 
@@ -280,6 +256,16 @@ export function SignUpForm() {
       // Simulated network latency so the loading state is visible.
       await new Promise((resolve) => setTimeout(resolve, 900));
 
+      // Register the credentials in the local demo store so the Sign In
+      // page can verify them (replaced by the backend later).
+      await registerDemoAccount({
+        name: values.name,
+        email: values.email,
+        password: values.password,
+        role: values.role,
+        ...(avatarUrl ? { avatarUrl } : {}),
+      });
+
       writeSession({
         token: `local-${crypto.randomUUID()}`,
         user: {
@@ -295,9 +281,8 @@ export function SignUpForm() {
         description: "Your account has been created successfully.",
       });
 
-      // Role-specific dashboards arrive in the dashboard module; both roles
-      // land on the shared planning dashboard for now.
-      router.push(siteConfig.routes.dashboard);
+      // Redirect to the landing route for the chosen account role.
+      router.push(siteConfig.dashboards[values.role]);
     } catch {
       toast.error("Could not create your account", {
         description: "Please try again in a moment.",
@@ -309,38 +294,10 @@ export function SignUpForm() {
     <section className="relative flex min-h-[calc(100dvh-4rem)] w-full items-center bg-gradient-to-b from-secondary/60 via-background to-accent/15 py-10">
       <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
         {/* Brand panel (desktop) */}
-        <div className="hidden flex-col gap-8 lg:flex">
-          <Monogram className="h-14" />
-
-          <div className="flex flex-col gap-4">
-            <h2 className="font-heading text-4xl font-semibold tracking-tight text-balance">
-              Every love story deserves a beautiful plan.
-            </h2>
-            <p className="max-w-md text-balance text-muted-foreground">
-              Join {siteConfig.name} to discover trusted wedding vendors, keep
-              your budget on track and manage every detail of your big day in
-              one elegant place.
-            </p>
-          </div>
-
-          <ul className="flex flex-col gap-3.5">
-            {highlights.map(({ icon: Icon, title, text }) => (
-              <li key={title} className="flex items-center gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground">
-                  <Icon className="size-4" aria-hidden="true" />
-                </span>
-                <p className="text-sm">
-                  <span className="font-semibold">{title}</span>{" "}
-                  <span className="text-muted-foreground">— {text}</span>
-                </p>
-              </li>
-            ))}
-          </ul>
-
-          <p className="mt-auto font-heading text-lg text-muted-foreground italic">
-            “{siteConfig.tagline}”
-          </p>
-        </div>
+        <AuthAside
+          headline="Every love story deserves a beautiful plan."
+          description={`Join ${siteConfig.name} to discover trusted wedding vendors, keep your budget on track and manage every detail of your big day in one elegant place.`}
+        />
 
         {/* Form card */}
         <div className="mx-auto w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
