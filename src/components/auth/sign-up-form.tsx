@@ -7,6 +7,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
+
 import {
   CircleCheck,
   Eye,
@@ -23,23 +24,25 @@ import { AuthAside } from "@/components/auth/auth-aside";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { writeSession } from "@/lib/auth-session";
-import { registerDemoAccount } from "@/lib/demo-auth";
+import { authClient } from "@/lib/auth-client";
 import { siteConfig } from "@/config/site";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
-/* Validation                                                          */
+/* Validation */
 /* ------------------------------------------------------------------ */
 
 const signUpSchema = z.object({
   name: z.string().trim().min(2, "Please enter your full name."),
+
   email: z.email("Please enter a valid email address."),
+
   password: z
     .string()
-    .min(6, "Password must be at least 6 characters.")
+    .min(8, "Password must be at least 8 characters.")
     .regex(/[A-Z]/, "Include at least one uppercase letter.")
     .regex(/[a-z]/, "Include at least one lowercase letter."),
+
   role: z.enum(["customer", "vendor"], {
     message: "Please choose an account type.",
   }),
@@ -47,11 +50,28 @@ const signUpSchema = z.object({
 
 type SignUpValues = z.infer<typeof signUpSchema>;
 
+/* ------------------------------------------------------------------ */
+/* Password Rules */
+/* ------------------------------------------------------------------ */
+
 const passwordRules = [
-  { label: "6+ characters", met: (value: string) => value.length >= 6 },
-  { label: "Uppercase", met: (value: string) => /[A-Z]/.test(value) },
-  { label: "Lowercase", met: (value: string) => /[a-z]/.test(value) },
+  {
+    label: "8+ characters",
+    met: (value: string) => value.length >= 8,
+  },
+  {
+    label: "Uppercase",
+    met: (value: string) => /[A-Z]/.test(value),
+  },
+  {
+    label: "Lowercase",
+    met: (value: string) => /[a-z]/.test(value),
+  },
 ] as const;
+
+/* ------------------------------------------------------------------ */
+/* Account Role Options */
+/* ------------------------------------------------------------------ */
 
 const roleOptions = [
   {
@@ -69,29 +89,32 @@ const roleOptions = [
 ] as const;
 
 /* ------------------------------------------------------------------ */
-/* ImgBB profile image upload                                          */
+/* ImgBB Profile Image Upload */
 /* ------------------------------------------------------------------ */
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 async function uploadAvatarToImgbb(file: File): Promise<string> {
-  // ImgBB keys are browser-safe (client-side upload API), so the key lives
-  // in NEXT_PUBLIC_IMGBB_API_KEY. Get a free one at https://api.imgbb.com.
   const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
 
   if (!apiKey) {
     throw new Error(
-      "Image upload is not configured yet. Add NEXT_PUBLIC_IMGBB_API_KEY to .env (free key at api.imgbb.com)."
+      "Image upload is not configured. Please add NEXT_PUBLIC_IMGBB_API_KEY to your environment variables.",
     );
   }
 
   const base64 = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
+
     reader.onload = () => {
       const result = String(reader.result);
       resolve(result.slice(result.indexOf(",") + 1));
     };
-    reader.onerror = () => reject(new Error("Could not read the selected file."));
+
+    reader.onerror = () => {
+      reject(new Error("Could not read the selected image."));
+    };
+
     reader.readAsDataURL(file);
   });
 
@@ -102,19 +125,30 @@ async function uploadAvatarToImgbb(file: File): Promise<string> {
     method: "POST",
     body,
   });
-  const payload = (await response.json().catch(() => null)) as
-    | { success?: boolean; data?: { display_url?: string; url?: string } }
-    | null;
+
+  const payload = (await response.json().catch(() => null)) as {
+    success?: boolean;
+    data?: {
+      display_url?: string;
+      url?: string;
+    };
+  } | null;
 
   if (!response.ok || !payload?.success || !payload.data) {
-    throw new Error("ImgBB rejected the upload. Please try a different image.");
+    throw new Error("Image upload failed. Please try another image.");
   }
 
-  return payload.data.display_url ?? payload.data.url ?? "";
+  const imageUrl = payload.data.display_url ?? payload.data.url;
+
+  if (!imageUrl) {
+    throw new Error("Could not get the uploaded image URL.");
+  }
+
+  return imageUrl;
 }
 
 /* ------------------------------------------------------------------ */
-/* Google icon (standard multi-color "G")                              */
+/* Google Icon */
 /* ------------------------------------------------------------------ */
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -124,14 +158,17 @@ function GoogleIcon({ className }: { className?: string }) {
         fill="#EA4335"
         d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
       />
+
       <path
         fill="#4285F4"
         d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
       />
+
       <path
         fill="#FBBC05"
         d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
       />
+
       <path
         fill="#34A853"
         d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
@@ -141,7 +178,7 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Form                                                                */
+/* Sign Up Form */
 /* ------------------------------------------------------------------ */
 
 export function SignUpForm() {
@@ -155,21 +192,37 @@ export function SignUpForm() {
     formState: { errors, isSubmitting },
   } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { name: "", email: "", password: "" },
+
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+    },
   });
 
   const passwordValue = useWatch({ control, name: "password" }) ?? "";
-  const role = useWatch({ control, name: "role" });
+
+  const role = useWatch({
+    control,
+    name: "role",
+  });
 
   const [showPassword, setShowPassword] = React.useState(false);
+
   const [avatarPreview, setAvatarPreview] = React.useState<string | null>(null);
+
   const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
+
   const [isUploadingImage, setIsUploadingImage] = React.useState(false);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   const previewRef = React.useRef<string | null>(null);
 
-  // Revoke the last object URL when the form unmounts.
+  /* ---------------------------------------------------------------- */
+  /* Clean Up Image Preview */
+  /* ---------------------------------------------------------------- */
+
   React.useEffect(() => {
     return () => {
       if (previewRef.current) {
@@ -177,6 +230,10 @@ export function SignUpForm() {
       }
     };
   }, []);
+
+  /* ---------------------------------------------------------------- */
+  /* Remove Profile Image */
+  /* ---------------------------------------------------------------- */
 
   const removeAvatar = () => {
     if (previewRef.current) {
@@ -192,129 +249,186 @@ export function SignUpForm() {
     setAvatarUrl(null);
   };
 
-  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  /* ---------------------------------------------------------------- */
+  /* Handle Profile Image Upload */
+  /* ---------------------------------------------------------------- */
+
+  const handleAvatarChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
 
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
       toast.error("Please choose an image file (JPG, PNG or WebP).");
-      event.target.value = "";
+      input.value = "";
       return;
     }
 
     if (file.size > MAX_IMAGE_BYTES) {
       toast.error("Image must be smaller than 5 MB.");
-      event.target.value = "";
+      input.value = "";
       return;
     }
 
-    // Instant local preview…
     if (previewRef.current) {
       URL.revokeObjectURL(previewRef.current);
     }
+
     const preview = URL.createObjectURL(file);
+
     previewRef.current = preview;
     setAvatarPreview(preview);
+    setAvatarUrl(null);
 
-    // …then upload to ImgBB so the URL is ready when the form is submitted.
     setIsUploadingImage(true);
+
     try {
       const url = await uploadAvatarToImgbb(file);
+
       setAvatarUrl(url);
+
       toast.success("Profile image uploaded", {
-        description: "It will be attached to your new account.",
+        description: "Your image is ready for registration.",
       });
     } catch (error) {
-      setAvatarUrl(null);
+      if (previewRef.current) {
+        URL.revokeObjectURL(previewRef.current);
+        previewRef.current = null;
+      }
+
       setAvatarPreview(null);
-      previewRef.current = null;
-      event.target.value = "";
+      setAvatarUrl(null);
+      input.value = "";
+
       toast.error("Image upload failed", {
-        description: error instanceof Error ? error.message : "Please try again.",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
       });
     } finally {
       setIsUploadingImage(false);
     }
   };
 
-  const handleGoogleSignUp = () => {
-    // UI only for now — the real OAuth flow arrives with the Better Auth /
-    // backend integration module. Keeping the button in place preserves the
-    // final UX and the mount point for that integration.
-    toast.info("Google sign-in is coming soon", {
-      description: "It will be enabled with the backend authentication module.",
-    });
+  /* ---------------------------------------------------------------- */
+  /* Google Sign Up */
+  /* ---------------------------------------------------------------- */
+
+  const handleGoogleSignUp = async () => {
+    if (!role) {
+      toast.error("Please select your account type first.");
+      return;
+    }
+
+    try {
+      const { error } = await authClient.signIn.social({
+        provider: "google",
+
+        callbackURL: siteConfig.routes.signIn,
+
+        newUserCallbackURL: `${siteConfig.routes.signIn}?newUserRole=${role}`,
+      });
+
+      if (error) {
+        toast.error("Google sign-up failed", {
+          description: error.message || "Please try again.",
+        });
+      }
+    } catch (error) {
+      toast.error("Google sign-up failed", {
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+      });
+    }
   };
 
+  /* ---------------------------------------------------------------- */
+  /* Email and Password Registration */
+  /* ---------------------------------------------------------------- */
+
   const onSubmit = handleSubmit(async (values) => {
-    // NOTE: Frontend-only registration for now — real account creation
-    // (Express API / Better Auth) is wired in a later module. The flow
-    // below (validate → session → redirect) is exactly what the backend
-    // version will replace.
+    if (isUploadingImage) {
+      toast.error("Please wait until your profile image uploads.");
+      return;
+    }
+
     try {
-      // Simulated network latency so the loading state is visible.
-      await new Promise((resolve) => setTimeout(resolve, 900));
+      const { data, error } = await authClient.signUp.email({
+        name: values.name.trim(),
 
-      // Register the credentials in the local demo store so the Sign In
-      // page can verify them (replaced by the backend later).
-      await registerDemoAccount({
-        name: values.name,
-        email: values.email,
+        email: values.email.trim(),
+
         password: values.password,
-        role: values.role,
-        ...(avatarUrl ? { avatarUrl } : {}),
-      });
 
-      writeSession({
-        token: `local-${crypto.randomUUID()}`,
-        user: {
-          id: crypto.randomUUID(),
-          name: values.name.trim(),
-          email: values.email.trim(),
-          role: values.role,
-          ...(avatarUrl ? { avatarUrl } : {}),
-        },
-      });
+        image: avatarUrl ?? undefined,
+
+        accountRole: values.role,
+
+        callbackURL: siteConfig.routes.signIn,
+      } as never);
+
+      if (error || !data?.user) {
+        toast.error("Could not create your account", {
+          description:
+            error?.message || "Please check your information and try again.",
+        });
+
+        return;
+      }
 
       toast.success("Welcome to WedPlan!", {
         description: "Your account has been created successfully.",
       });
 
-      // Redirect to the landing route for the chosen account role.
-      router.push(siteConfig.dashboards[values.role]);
-    } catch {
-      toast.error("Could not create your account", {
-        description: "Please try again in a moment.",
+      router.replace(siteConfig.dashboards[values.role]);
+    } catch (error) {
+      toast.error("Registration failed", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please try again in a moment.",
       });
     }
   });
 
+  /* ---------------------------------------------------------------- */
+  /* UI */
+  /* ---------------------------------------------------------------- */
+
   return (
     <section className="relative flex min-h-[calc(100dvh-4rem)] w-full items-center bg-gradient-to-b from-secondary/60 via-background to-accent/15 py-10">
       <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
-        {/* Brand panel (desktop) */}
+        {/* Brand Panel */}
+
         <AuthAside
           headline="Every love story deserves a beautiful plan."
           description={`Join ${siteConfig.name} to discover trusted wedding vendors, keep your budget on track and manage every detail of your big day in one elegant place.`}
         />
 
-        {/* Form card */}
+        {/* Form Card */}
+
         <div className="mx-auto w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
           <div className="flex flex-col items-center gap-2 text-center">
             <div className="lg:hidden">
               <Logo />
             </div>
+
             <div className="hidden lg:block">
               <Monogram className="h-10" />
             </div>
+
             <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
               Create your account
             </h1>
+
             <p className="text-sm text-muted-foreground">
               Start planning your perfect day — or grow your wedding business.
             </p>
           </div>
+
+          {/* Google Sign Up */}
 
           <div className="mt-6 flex flex-col gap-4">
             <Button
@@ -322,7 +436,7 @@ export function SignUpForm() {
               variant="outline"
               className="h-10 w-full"
               onClick={handleGoogleSignUp}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingImage}
             >
               <GoogleIcon className="size-4" />
               Continue with Google
@@ -330,17 +444,27 @@ export function SignUpForm() {
 
             <div className="flex items-center gap-3" aria-hidden="true">
               <span className="h-px flex-1 bg-border" />
+
               <span className="text-xs uppercase tracking-wider text-muted-foreground">
                 or sign up with email
               </span>
+
               <span className="h-px flex-1 bg-border" />
             </div>
           </div>
 
-          <form onSubmit={onSubmit} noValidate className="mt-6 flex flex-col gap-5">
-            {/* Full name */}
+          {/* Registration Form */}
+
+          <form
+            onSubmit={onSubmit}
+            noValidate
+            className="mt-6 flex flex-col gap-5"
+          >
+            {/* Full Name */}
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="name">Full name</Label>
+
               <Input
                 id="name"
                 placeholder="e.g. Ayesha Rahman"
@@ -349,6 +473,7 @@ export function SignUpForm() {
                 aria-invalid={Boolean(errors.name)}
                 {...register("name")}
               />
+
               {errors.name && (
                 <p className="text-xs text-destructive" role="alert">
                   {errors.name.message}
@@ -357,8 +482,10 @@ export function SignUpForm() {
             </div>
 
             {/* Email */}
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Email address</Label>
+
               <Input
                 id="email"
                 type="email"
@@ -368,6 +495,7 @@ export function SignUpForm() {
                 aria-invalid={Boolean(errors.email)}
                 {...register("email")}
               />
+
               {errors.email && (
                 <p className="text-xs text-destructive" role="alert">
                   {errors.email.message}
@@ -376,18 +504,21 @@ export function SignUpForm() {
             </div>
 
             {/* Password */}
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">Password</Label>
+
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   autoComplete="new-password"
                   className="h-10 pr-10"
                   aria-invalid={Boolean(errors.password)}
                   {...register("password")}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword((visible) => !visible)}
@@ -402,7 +533,8 @@ export function SignUpForm() {
                 </button>
               </div>
 
-              {/* Live password checklist */}
+              {/* Live Password Checklist */}
+
               <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                 {passwordRules.map((rule) => {
                   const met = rule.met(passwordValue);
@@ -412,13 +544,14 @@ export function SignUpForm() {
                       key={rule.label}
                       className={cn(
                         "flex items-center gap-1 text-xs transition-colors",
-                        met ? "text-primary" : "text-muted-foreground"
+                        met ? "text-primary" : "text-muted-foreground",
                       )}
                     >
                       <CircleCheck
                         className={cn("size-3.5", !met && "opacity-40")}
                         aria-hidden="true"
                       />
+
                       {rule.label}
                     </li>
                   );
@@ -432,12 +565,16 @@ export function SignUpForm() {
               )}
             </div>
 
-            {/* Profile image (optional, ImgBB) */}
+            {/* Profile Image - Optional */}
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="avatar">
                 Profile image{" "}
-                <span className="font-normal text-muted-foreground">(optional)</span>
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
               </Label>
+
               <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-secondary/40 p-3">
                 {avatarPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -460,6 +597,7 @@ export function SignUpForm() {
                         ? "Image ready"
                         : "JPG, PNG or WebP — up to 5 MB"}
                   </p>
+
                   <p className="truncate text-xs text-muted-foreground">
                     {avatarUrl
                       ? "Uploaded successfully."
@@ -476,12 +614,16 @@ export function SignUpForm() {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     {isUploadingImage ? (
-                      <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                      <Loader2
+                        className="size-3.5 animate-spin"
+                        aria-hidden="true"
+                      />
                     ) : (
                       <ImagePlus className="size-3.5" aria-hidden="true" />
                     )}
                     Upload
                   </Button>
+
                   {avatarPreview && !isUploadingImage && (
                     <Button
                       type="button"
@@ -495,6 +637,7 @@ export function SignUpForm() {
                   )}
                 </div>
               </div>
+
               <input
                 ref={fileInputRef}
                 id="avatar"
@@ -505,58 +648,65 @@ export function SignUpForm() {
               />
             </div>
 
-            {/* Account role */}
+            {/* Account Role */}
+
             <div className="flex flex-col gap-1.5">
               <Label>Account type</Label>
-              <div className="grid grid-cols-2 gap-3">
-                {roleOptions.map(({ value, label, description, icon: Icon }) => {
-                  const selected = role === value;
 
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() =>
-                        setValue("role", value, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        })
-                      }
-                      aria-pressed={selected}
-                      className={cn(
-                        "flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left transition-all outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                        selected
-                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                          : "border-border bg-background hover:border-primary/40 hover:bg-secondary/50"
-                      )}
-                    >
-                      <span
+              <div className="grid grid-cols-2 gap-3">
+                {roleOptions.map(
+                  ({ value, label, description, icon: Icon }) => {
+                    const selected = role === value;
+
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() =>
+                          setValue("role", value, {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          })
+                        }
+                        aria-pressed={selected}
                         className={cn(
-                          "grid size-9 place-items-center rounded-lg transition-colors",
+                          "flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left transition-all outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                           selected
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-secondary-foreground"
+                            ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                            : "border-border bg-background hover:border-primary/40 hover:bg-secondary/50",
                         )}
                       >
-                        <Icon className="size-4.5" aria-hidden="true" />
-                      </span>
-                      <span>
                         <span
                           className={cn(
-                            "block text-sm font-semibold transition-colors",
-                            selected && "text-primary"
+                            "grid size-9 place-items-center rounded-lg transition-colors",
+                            selected
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-secondary-foreground",
                           )}
                         >
-                          {label}
+                          <Icon className="size-4.5" aria-hidden="true" />
                         </span>
-                        <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
-                          {description}
+
+                        <span>
+                          <span
+                            className={cn(
+                              "block text-sm font-semibold transition-colors",
+                              selected && "text-primary",
+                            )}
+                          >
+                            {label}
+                          </span>
+
+                          <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
+                            {description}
+                          </span>
                         </span>
-                      </span>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  },
+                )}
               </div>
+
               {errors.role && (
                 <p className="text-xs text-destructive" role="alert">
                   {errors.role.message}
@@ -564,12 +714,22 @@ export function SignUpForm() {
               )}
             </div>
 
-            {/* Submit */}
-            <Button type="submit" disabled={isSubmitting} className="h-11 w-full text-sm">
+            {/* Submit Button */}
+
+            <Button
+              type="submit"
+              disabled={isSubmitting || isUploadingImage}
+              className="h-11 w-full text-sm"
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="animate-spin" aria-hidden="true" />
                   Creating your account…
+                </>
+              ) : isUploadingImage ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                  Uploading image…
                 </>
               ) : (
                 "Create account"
@@ -577,10 +737,12 @@ export function SignUpForm() {
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              By creating an account you agree to WedPlan&apos;s Terms of Service
-              and Privacy Policy.
+              By creating an account you agree to WedPlan&apos;s Terms of
+              Service and Privacy Policy.
             </p>
           </form>
+
+          {/* Sign In Link */}
 
           <p className="mt-5 border-t border-border pt-5 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
