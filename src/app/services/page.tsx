@@ -339,16 +339,16 @@ export default function BrowseServicesPage() {
       <div className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
         {/* ================= TOP EYEBROW + HEADER ================= */}
         <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#faeceb] px-3.5 py-1 text-xs font-semibold text-[#8b2332]">
-            <Sparkles className="size-3.5" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary">
+            <Sparkles className="size-3.5 text-gold" />
             Curated Wedding Marketplace
           </span>
 
-          <h1 className="mt-3 font-serif text-3xl font-bold tracking-tight text-[#1c1917] sm:text-5xl">
+          <h1 className="mt-3 font-heading text-3xl font-bold tracking-tight text-[#183D2D] sm:text-5xl">
             Browse Wedding Services
           </h1>
 
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#666] sm:text-base">
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#555E53] sm:text-base">
             Search verified photographers, dream venues, florists, caterers, and
             stylists. Sign in to view full galleries and send booking requests.
           </p>
@@ -361,23 +361,23 @@ export default function BrowseServicesPage() {
         >
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-[1.5fr_1.1fr_1.2fr_1.1fr_auto] items-center">
             {/* 1. Keyword search */}
-            <div className="relative flex items-center rounded-xl border border-[#e6dfd5] bg-white px-3 py-2.5 focus-within:border-[#8b2332] transition">
+            <div className="relative flex items-center rounded-xl border border-[#e6dfd5] bg-white px-3 py-2.5 focus-within:border-primary transition">
               <Search className="size-4 shrink-0 text-muted-foreground mr-2" />
               <input
                 type="text"
                 placeholder="Search service name or keyword..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-transparent text-xs sm:text-sm text-[#222] placeholder:text-[#888] outline-none"
+                className="w-full bg-transparent text-xs sm:text-sm text-[#183D2D] placeholder:text-[#888] outline-none"
               />
             </div>
 
             {/* 2. Category select */}
-            <div className="relative flex items-center rounded-xl border border-[#e6dfd5] bg-white px-3 py-2.5 focus-within:border-[#8b2332] transition">
+            <div className="relative flex items-center rounded-xl border border-[#e6dfd5] bg-white px-3 py-2.5 focus-within:border-primary transition">
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full bg-transparent text-xs sm:text-sm text-[#222] outline-none cursor-pointer pr-6 appearance-none"
+                className="w-full bg-transparent text-xs sm:text-sm text-[#183D2D] outline-none cursor-pointer pr-6 appearance-none"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -389,19 +389,19 @@ export default function BrowseServicesPage() {
             </div>
 
             {/* 3. Location filter */}
-            <div className="relative flex items-center rounded-xl border border-[#e6dfd5] bg-white px-3 py-2.5 focus-within:border-[#8b2332] transition">
+            <div className="relative flex items-center rounded-xl border border-[#e6dfd5] bg-white px-3 py-2.5 focus-within:border-primary transition">
               <MapPin className="size-4 shrink-0 text-muted-foreground mr-2" />
               <input
                 type="text"
                 placeholder="Filter by city / location..."
                 value={locationFilter}
                 onChange={(e) => setLocationFilter(e.target.value)}
-                className="w-full bg-transparent text-xs sm:text-sm text-[#222] placeholder:text-[#888] outline-none"
+                className="w-full bg-transparent text-xs sm:text-sm text-[#183D2D] placeholder:text-[#888] outline-none"
               />
             </div>
 
             {/* 4. Sort select */}
-            <div className="relative flex items-center rounded-xl border border-[#e6dfd5] bg-white px-3 py-2.5 focus-within:border-[#8b2332] transition">
+            <div className="relative flex items-center rounded-xl border border-[#e6dfd5] bg-white px-3 py-2.5 focus-within:border-primary transition">
               <SlidersHorizontal className="size-4 shrink-0 text-muted-foreground mr-2" />
               <select
                 value={sortOption}
@@ -410,7 +410,7 @@ export default function BrowseServicesPage() {
                     e.target.value as "featured" | "price-low" | "price-high"
                   )
                 }
-                className="w-full bg-transparent text-xs sm:text-sm text-[#222] outline-none cursor-pointer pr-6 appearance-none"
+                className="w-full bg-transparent text-xs sm:text-sm text-[#183D2D] outline-none cursor-pointer pr-6 appearance-none"
               >
                 <option value="featured">Featured & Newest</option>
                 <option value="price-low">Price: Low to High</option>
@@ -422,7 +422,7 @@ export default function BrowseServicesPage() {
             {/* 5. Submit button */}
             <button
               type="submit"
-              className="h-11 rounded-xl bg-[#8b2332] px-7 text-sm font-semibold text-white shadow-sm transition hover:bg-[#721c28] flex items-center justify-center cursor-pointer shrink-0"
+              className="h-11 rounded-xl bg-[#183D2D] px-7 text-sm font-semibold text-white shadow-sm transition hover:bg-[#122e22] flex items-center justify-center cursor-pointer shrink-0"
             >
               Search
             </button>
@@ -440,12 +440,12 @@ export default function BrowseServicesPage() {
         {/* ================= CARDS GRID ================= */}
         {isLoading ? (
           <div className="flex min-h-[350px] flex-col items-center justify-center gap-3">
-            <Loader2 className="size-8 animate-spin text-[#8b2332]" />
+            <Loader2 className="size-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Loading wedding services...</p>
           </div>
         ) : filteredServices.length === 0 ? (
           <div className="mt-8 flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#ede7de] bg-white p-8 text-center">
-            <p className="font-serif text-lg font-bold text-[#1c1917]">
+            <p className="font-heading text-lg font-bold text-[#183D2D]">
               No wedding services found
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -463,7 +463,7 @@ export default function BrowseServicesPage() {
                 setActiveLocation("");
                 setActiveSort("featured");
               }}
-              className="mt-4 rounded-xl bg-[#8b2332] px-5 py-2 text-xs font-semibold text-white"
+              className="mt-4 rounded-xl bg-[#183D2D] px-5 py-2 text-xs font-semibold text-white hover:bg-[#122e22]"
             >
               Reset Filters
             </button>
@@ -500,12 +500,12 @@ export default function BrowseServicesPage() {
 
                     {/* Top badges */}
                     <div className="absolute left-3 top-3 right-3 flex items-center gap-2">
-                      <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-[#1c1917] shadow-sm backdrop-blur-sm">
+                      <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-[#183D2D] shadow-sm backdrop-blur-sm border border-[#ede7de]">
                         {service.category || "Wedding Venues"}
                       </span>
 
                       <span className="flex items-center gap-1 rounded-full border border-[#f5df9a] bg-[#fdf6e2]/95 px-3 py-1 text-xs font-semibold text-[#966b12] shadow-sm backdrop-blur-sm">
-                        <Sparkles className="size-3" />
+                        <Sparkles className="size-3 text-gold" />
                         Featured Partner
                       </span>
                     </div>
@@ -519,20 +519,20 @@ export default function BrowseServicesPage() {
                   {/* Card Content */}
                   <div className="flex flex-1 flex-col p-5">
                     {/* Title */}
-                    <h2 className="font-serif text-lg font-bold text-[#1c1917] line-clamp-1 group-hover:text-[#8b2332] transition">
+                    <h2 className="font-heading text-lg font-bold text-[#183D2D] line-clamp-1 group-hover:text-primary transition">
                       {title}
                     </h2>
 
                     {/* Location */}
                     <div className="mt-1 flex items-center gap-1 text-xs text-[#78716c]">
-                      <MapPin className="size-3.5 shrink-0 text-[#999]" />
+                      <MapPin className="size-3.5 shrink-0 text-primary/70" />
                       <span className="truncate">
                         {service.location || service.city || "Sonoma, CA"}
                       </span>
                     </div>
 
                     {/* Description */}
-                    <p className="mt-3 text-xs leading-relaxed text-[#666] line-clamp-2 min-h-[36px]">
+                    <p className="mt-3 text-xs leading-relaxed text-[#555E53] line-clamp-2 min-h-[36px]">
                       {service.description ||
                         "Private 18-acre vineyard estate accommodating up to 220 guests with a glass conservatory reception hall..."}
                     </p>
@@ -545,7 +545,7 @@ export default function BrowseServicesPage() {
                         className="size-8 rounded-full bg-muted object-cover shrink-0"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-[#1c1917] leading-tight">
+                        <p className="truncate text-xs font-semibold text-[#183D2D] leading-tight">
                           {vendor}
                         </p>
                         <p className="text-[11px] text-[#888] leading-tight mt-0.5">
@@ -557,7 +557,7 @@ export default function BrowseServicesPage() {
                     {/* View Details Button */}
                     <Link
                       href={`${siteConfig.routes.services}/${serviceId}`}
-                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#8b2332] py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#721c28]"
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#183D2D] py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#122e22]"
                     >
                       View Details
                       <ArrowRight className="size-3.5" />
