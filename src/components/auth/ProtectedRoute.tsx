@@ -19,7 +19,15 @@ export default function ProtectedRoute({ children, allowedRoles }: Props) {
     if (isPending) return;
 
     if (!isAuthenticated) {
-      router.replace(siteConfig.routes.signIn);
+      if (typeof window !== "undefined") {
+        router.replace(
+          `${siteConfig.routes.signIn}?callbackURL=${encodeURIComponent(
+            window.location.pathname
+          )}`
+        );
+      } else {
+        router.replace(siteConfig.routes.signIn);
+      }
       return;
     }
 
