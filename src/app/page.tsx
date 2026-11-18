@@ -741,6 +741,157 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ================= VENDOR CTA ================= */}
+      <section className="relative overflow-hidden bg-[#183D2D] px-5 py-20 sm:px-8 md:py-24 lg:px-12">
+        {/* Decorative circles */}
+        <div className="pointer-events-none absolute -right-32 -top-32 h-[500px] w-[500px] rounded-full border border-[#D5B66D]/10" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-[360px] w-[360px] rounded-full border border-[#D5B66D]/10" />
+        <div className="pointer-events-none absolute -left-32 -bottom-40 h-[400px] w-[400px] rounded-full border border-white/5" />
+
+        <div className="relative mx-auto flex max-w-7xl flex-col items-center justify-between gap-10 text-center md:flex-row md:text-left">
+          <div className="max-w-2xl">
+            <div className="mb-4 flex items-center justify-center gap-3 md:justify-start">
+              <span className="h-px w-8 bg-[#D5B66D]" />
+              <p className="text-[10px] uppercase tracking-[3px] text-[#D5B66D]">
+                For Wedding Professionals
+              </p>
+            </div>
+
+            <h2 className="font-serif text-4xl font-medium leading-tight text-white sm:text-5xl">
+              Let Your Talent
+              <br />
+              <span className="italic text-[#D5B66D]">Find Its People.</span>
+            </h2>
+
+            <p className="mt-5 max-w-xl text-sm leading-7 text-white/65">
+              Showcase your work, connect with couples and grow your wedding
+              business through a platform made for beautiful celebrations.
+            </p>
+
+            <div className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-3 md:justify-start">
+              {["Showcase your services", "Reach new couples", "Grow your business"].map(
+                (item) => (
+                  <div
+                    key={item}
+                    className="flex items-center gap-2 text-xs text-white/70"
+                  >
+                    <Check size={14} className="text-[#D5B66D]" />
+                    {item}
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+
+          <Link
+            href={siteConfig.routes.signUp}
+            className="group inline-flex shrink-0 items-center gap-3 rounded-full bg-[#D5B66D] px-8 py-4 text-xs font-semibold text-[#183D2D] transition duration-300 hover:bg-[#E8CD91]"
+          >
+            Become a Wedding Vendor
+            <ArrowRight
+              size={16}
+              className="transition-transform group-hover:translate-x-1"
+            />
+          </Link>
+        </div>
+      </section>
+
+      {/* ================= TESTIMONIALS ================= */}
+      <section className="px-5 py-20 sm:px-8 md:py-24 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="text-center">
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <span className="h-px w-8 bg-[#B4934C]" />
+              <p className="text-[10px] uppercase tracking-[3px] text-[#B4934C]">
+                Kind words
+              </p>
+              <span className="h-px w-8 bg-[#B4934C]" />
+            </div>
+
+            <h2 className="font-serif text-4xl font-medium sm:text-5xl">
+              Love Notes From Couples
+            </h2>
+
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#737B72]">
+              The most beautiful stories are the ones made with love, care and
+              a little help along the way.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {testimonials.map((testimonial) => (
+              <div
+                key={testimonial.name}
+                className="group rounded-2xl border border-[#E8E1D3] bg-white p-7 transition duration-300 hover:-translate-y-1 hover:border-[#D5B66D]/50 hover:shadow-[0_15px_40px_rgba(24,61,45,0.07)] sm:p-8"
+              >
+                <div className="mb-5 flex gap-1 text-[#C4A45D]">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star key={star} size={13} fill="currentColor" />
+                  ))}
+                </div>
+
+                <p className="font-serif text-lg italic leading-8 text-[#314D3C]">
+                  &ldquo;{testimonial.quote}&rdquo;
+                </p>
+
+                <div className="mt-7 border-t border-[#E8E1D3] pt-5">
+                  <h3 className="text-sm font-semibold text-[#183D2D]">
+                    {testimonial.name}
+                  </h3>
+
+                  <p className="mt-1 text-[10px] uppercase tracking-wider text-[#8B9187]">
+                    {testimonial.role}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+            {/* ================= FINAL CTA ================= */}
+      <section className="px-5 pb-20 sm:px-8 md:pb-24 lg:px-12">
+        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl bg-[#EAE4D8] px-6 py-16 text-center sm:px-12 sm:py-20">
+          {/* Decorative circles */}
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full border border-[#B4934C]/15" />
+          <div className="pointer-events-none absolute -left-20 -bottom-20 h-64 w-64 rounded-full border border-[#B4934C]/15" />
+
+          <div className="relative">
+            <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-full border border-[#D5B66D]/50 bg-[#FAF8F2] text-[#B4934C]">
+              <Heart size={22} />
+            </div>
+
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <span className="h-px w-8 bg-[#B4934C]" />
+              <p className="text-[10px] uppercase tracking-[3px] text-[#B4934C]">
+                Your story deserves it
+              </p>
+              <span className="h-px w-8 bg-[#B4934C]" />
+            </div>
+
+            <h2 className="font-serif text-4xl font-medium leading-tight text-[#183D2D] sm:text-5xl md:text-6xl">
+              Begin Your Forever
+              <br />
+              <span className="italic text-[#B4934C]">Beautifully.</span>
+            </h2>
+
+            <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-[#737B72]">
+              Let the planning begin. Discover your dream wedding services and
+              make every detail of your special day unforgettable.
+            </p>
+
+            <Link
+              href={siteConfig.routes.services}
+              className="group mt-8 inline-flex items-center gap-3 rounded-full bg-[#183D2D] px-8 py-4 text-xs font-semibold text-white transition duration-300 hover:bg-[#285640]"
+            >
+              Start Planning Today
+              <ArrowRight
+                size={16}
+                className="transition-transform group-hover:translate-x-1"
+              />
+            </Link>
+          </div>
+        </div>
+      </section>
 
 
       {/* ================= GLOBAL HOMEPAGE ANIMATIONS ================= */}
