@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -64,6 +64,8 @@ function GoogleIcon({ className }: { className?: string }) {
 
 export function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackURL = searchParams.get("callbackURL") || searchParams.get("callbackUrl");
 
   const {
     register,
@@ -83,7 +85,7 @@ export function SignInForm() {
 
   /* Dashboard Redirect */
 
-  const getDashboardPath = (user: { role?: string | null }) => {
+  const getDashboardPath = React.useCallback((user: { role?: string | null }) => {
     if (user.role === "admin") {
       return siteConfig.dashboards.admin;
     }
@@ -91,24 +93,41 @@ export function SignInForm() {
       return siteConfig.dashboards.vendor;
     }
     return siteConfig.dashboards.customer;
-  };
+  }, []);
 
-  /* If already signed in, redirect to the appropriate dashboard */
+  const getRedirectTarget = React.useCallback(
+    (role?: string | null) => {
+      if (
+        callbackURL &&
+        callbackURL.startsWith("/") &&
+        !callbackURL.startsWith("//")
+      ) {
+        return callbackURL;
+      }
+      return getDashboardPath({ role });
+    },
+    [callbackURL, getDashboardPath]
+  );
+
+  /* If already signed in, redirect to the appropriate dashboard or callbackURL */
 
   React.useEffect(() => {
     if (isPending || !session?.user) return;
     const userRole = (session.user as { role?: string }).role;
-    router.replace(getDashboardPath({ role: userRole }));
-  }, [isPending, session, router]);
+    router.replace(getRedirectTarget(userRole));
+  }, [isPending, session, router, getRedirectTarget]);
 
   /* Google Sign In */
 
   const handleGoogleSignIn = async () => {
     try {
-      const callbackURL = `${window.location.origin}/auth/callback`;
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const redirectQuery = callbackURL ? `?redirect=${encodeURIComponent(callbackURL)}` : "";
+      const socialCallbackURL = `${origin}/auth/callback${redirectQuery}`;
+
       const { error } = await authClient.signIn.social({
         provider: "google",
-        callbackURL,
+        callbackURL: socialCallbackURL,
       });
 
       if (error) {
@@ -142,7 +161,11 @@ export function SignInForm() {
           action: {
             label: "Sign Up",
             onClick: () =>
-              router.push(siteConfig.routes.signUp),
+              router.push(
+                callbackURL
+                  ? `${siteConfig.routes.signUp}?callbackURL=${encodeURIComponent(callbackURL)}`
+                  : siteConfig.routes.signUp
+              ),
           },
         });
 
@@ -159,7 +182,7 @@ export function SignInForm() {
         }
       );
 
-      router.replace(getDashboardPath({ role: userRole }));
+      router.replace(getRedirectTarget(userRole));
     } catch (error) {
       toast.error("Could not sign you in", {
         description:
@@ -363,7 +386,11 @@ export function SignInForm() {
             New to {siteConfig.name}?{" "}
 
             <Link
-              href={siteConfig.routes.signUp}
+              href={
+                callbackURL
+                  ? `${siteConfig.routes.signUp}?callbackURL=${encodeURIComponent(callbackURL)}`
+                  : siteConfig.routes.signUp
+              }
               className="rounded-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               Create an account

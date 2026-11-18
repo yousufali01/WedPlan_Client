@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
@@ -17,8 +18,11 @@ import {
   Search,
   ChevronRight,
   Check,
+  BookOpen,
 } from "lucide-react";
+import { toast } from "sonner";
 
+import { useAuth } from "@/hooks/use-auth";
 import { siteConfig } from "@/config/site";
 
 type Service = {
@@ -36,47 +40,56 @@ type Service = {
   image?: string;
   imageUrl?: string;
   photos?: string[];
+  vendorName?: string;
+  vendorTitle?: string;
+  vendorAvatar?: string;
+  vendor?: {
+    id?: string;
+    name?: string;
+    businessName?: string;
+    image?: string | null;
+  };
 };
 
 const categories = [
   {
-    title: "Photography",
-    description: "Keep every precious moment forever",
+    title: "Photography & Videography",
+    description: "Keep every precious moment forever in 4K cinema and royal portraits",
     icon: Camera,
     image:
       "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=85",
   },
   {
     title: "Wedding Venues",
-    description: "Discover extraordinary places to celebrate",
+    description: "Discover extraordinary grand ballrooms, glass conservatories & estates",
     icon: MapPin,
     image:
       "https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=900&q=85",
   },
   {
     title: "Decoration & Florist",
-    description: "Beautiful details for your dream day",
+    description: "Exquisite floral arches, ambient candlelit aisles & dreamy stage styling",
     icon: Flower2,
     image:
       "https://images.unsplash.com/photo-1507504031003-b417219a0fde?auto=format&fit=crop&w=900&q=85",
   },
   {
-    title: "Catering",
-    description: "Exceptional taste for your celebration",
+    title: "Catering Services",
+    description: "Signature royal banquets, traditional biryanis & live gourmet stations",
     icon: Utensils,
     image:
       "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=900&q=85",
   },
   {
     title: "Makeup & Styling",
-    description: "Look and feel your most beautiful",
+    description: "Flawless HD bridal makeovers, radiant skin prep & luxury hair artistry",
     icon: Sparkles,
     image:
       "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=900&q=85",
   },
   {
     title: "Wedding Fashion",
-    description: "Find your perfect wedding look",
+    description: "Couture bridal gowns, custom European tuxedos & bespoke bridal jewelry",
     icon: Gem,
     image:
       "https://images.unsplash.com/photo-1594552072238-9c4c9a2c3a7b?auto=format&fit=crop&w=900&q=85",
@@ -104,6 +117,27 @@ const testimonials = [
   },
 ];
 
+const weddingPlanningTips = [
+  {
+    number: "01",
+    title: "Establish Your Vision & Budget Early",
+    description:
+      "Define your guest count range and core priorities before committing to contracts. Allocating funds across venues, photo, and decor keeps decisions clear and stress-free.",
+  },
+  {
+    number: "02",
+    title: "Secure High-Demand Vendors 6-9 Months Ahead",
+    description:
+      "Premium wedding venues, cinematographers, and bridal artists often book up a year in advance. Reserve early to guarantee your preferred dates and dates of celebration.",
+  },
+  {
+    number: "03",
+    title: "Curate a Cohesive Palette & Timeline",
+    description:
+      "Share moodboards and synchronized schedules between your floral designer, caterer, and photographer for a seamless, photogenic, and memorable wedding day.",
+  },
+];
+
 function getServiceName(service: Service) {
   return service.title || service.name || service.serviceName || "Wedding Service";
 }
@@ -117,6 +151,27 @@ function getServiceImage(service: Service) {
   );
 }
 
+function getVendorName(service: Service) {
+  return (
+    service.vendor?.businessName ||
+    service.vendor?.name ||
+    service.vendorName ||
+    "Atelier Lumiere Weddings"
+  );
+}
+
+function getVendorTitle(service: Service) {
+  return service.vendorTitle || "Verified Partner";
+}
+
+function getVendorAvatar(service: Service) {
+  return (
+    service.vendorAvatar ||
+    service.vendor?.image ||
+    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
+  );
+}
+
 function getServicePrice(service: Service) {
   const price = service.startingPrice ?? service.price;
 
@@ -124,7 +179,7 @@ function getServicePrice(service: Service) {
     return "Contact for pricing";
   }
 
-  if (typeof price === "string" && price.includes("৳")) {
+  if (typeof price === "string" && (price.includes("৳") || price.includes("$"))) {
     return price;
   }
 
@@ -145,6 +200,9 @@ const FALLBACK_SERVICES: Service[] = [
     price: 45000,
     location: "Gulshan, Dhaka",
     image: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85",
+    vendorName: "Heritage Wedding Cinematics",
+    vendorTitle: "Featured Partner",
+    vendorAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
   },
   {
     _id: "venue-grand-palace",
@@ -155,52 +213,79 @@ const FALLBACK_SERVICES: Service[] = [
     price: 180000,
     location: "Dhanmondi, Dhaka",
     image: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1200&q=85",
+    vendorName: "The Grand Regal Palace",
+    vendorTitle: "Premier Venue",
+    vendorAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
   },
   {
     _id: "decor-floral-dream",
     id: "decor-floral-dream",
     title: "Enchanted Garden Wedding Stage & Floral Styling",
-    category: "Decoration",
+    category: "Decoration & Florist",
     description: "Bespoke stage styling, fresh exotic floral arches, ambient fairy lights and dreamy walkway installations.",
     price: 65000,
     location: "Banani, Dhaka",
     image: "https://images.unsplash.com/photo-1507504031003-b417219a0fde?auto=format&fit=crop&w=1200&q=85",
+    vendorName: "Enchanted Floral Studio",
+    vendorTitle: "Master Florist",
+    vendorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
   },
   {
     _id: "catering-shahi-dawat",
     id: "catering-shahi-dawat",
     title: "Shahi Dawat Royal Gourmet Catering",
-    category: "Catering",
+    category: "Catering Services",
     description: "Authentic Kacchi biryani, slow-cooked roast, traditional kebabs and gourmet live dessert stations.",
     price: 850,
     location: "Uttara, Dhaka",
     image: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1200&q=85",
+    vendorName: "Shahi Dawat Royal Caterers",
+    vendorTitle: "Royal Gourmet",
+    vendorAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
   },
   {
     _id: "bridal-glamour-makeover",
     id: "bridal-glamour-makeover",
     title: "Signature Glamour Bridal Makeup & Hair Artistry",
-    category: "Bridal Makeup",
+    category: "Makeup & Styling",
     description: "HD airbrush makeup, traditional bridal draping and jewelry setting for an effortless, radiant bridal glow.",
     price: 25000,
     location: "Bashundhara, Dhaka",
     image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=85",
+    vendorName: "Glamour Artistry by Aysha",
+    vendorTitle: "Lead Artist",
+    vendorAvatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
   },
   {
-    _id: "planning-perfect-moments",
-    id: "planning-perfect-moments",
-    title: "Full-Service Luxury Wedding Planning & Coordination",
-    category: "Wedding Planning",
-    description: "End-to-end wedding management, vendor coordination, RSVP tracking and stress-free wedding day execution.",
+    _id: "fashion-haute-couture",
+    id: "fashion-haute-couture",
+    title: "Haute Bridal Couture & Custom Gown Atelier",
+    category: "Wedding Fashion",
+    description: "Private showroom appointment with European silk gowns, cathedral veils, bespoke tuxedo tailoring and accessories.",
     price: 55000,
-    location: "Mohakhali, Dhaka",
-    image: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=85",
+    location: "Gulshan, Dhaka",
+    image: "https://images.unsplash.com/photo-1594552072238-9c4c9a2c3a7b?auto=format&fit=crop&w=1200&q=85",
+    vendorName: "Atelier Lumiere Bridal",
+    vendorTitle: "Couture Partner",
+    vendorAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
   },
 ];
 
 export default function Home() {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [services, setServices] = useState<Service[]>(FALLBACK_SERVICES);
   const [loadingServices, setLoadingServices] = useState(true);
+
+  const handleServiceClick = (e: React.MouseEvent, serviceId: string) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      toast.info("Please sign in to view wedding service details.");
+      router.push(
+        `${siteConfig.routes.signIn}?callbackURL=${encodeURIComponent(`/services/${serviceId}`)}`
+      );
+    }
+  };
 
   useEffect(() => {
     async function loadServices() {
@@ -387,19 +472,17 @@ export default function Home() {
               <div className="mb-4 flex items-center gap-3">
                 <span className="h-px w-8 bg-[#B4934C]" />
                 <p className="text-[10px] font-medium uppercase tracking-[3px] text-[#B4934C]">
-                  Handpicked for your day
+                  Curated & Approved
                 </p>
               </div>
 
               <h2 className="font-serif text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
-                Beautiful Services,
-                <br />
-                <span className="italic text-[#B4934C]">Wonderful Memories.</span>
+                Featured Wedding Services
               </h2>
 
               <p className="mt-4 max-w-xl text-sm leading-7 text-[#747B73]">
-                Explore talented professionals who make your wedding dreams come
-                to life with care, creativity and a touch of magic.
+                Explore approved, top-rated wedding professionals who bring your
+                celebration to life with care, authenticity and extraordinary artistry.
               </p>
             </div>
 
@@ -437,7 +520,8 @@ export default function Home() {
                   <Link
                     key={serviceId}
                     href={`${siteConfig.routes.services}/${serviceId}`}
-                    className="service-card group overflow-hidden rounded-2xl border border-[#E8E1D3] bg-white transition duration-500 hover:-translate-y-1.5 hover:border-[#D5B66D]/60 hover:shadow-[0_20px_50px_rgba(24,61,45,0.10)]"
+                    onClick={(e) => handleServiceClick(e, serviceId)}
+                    className="service-card group flex flex-col justify-between overflow-hidden rounded-2xl border border-[#E8E1D3] bg-white transition duration-500 hover:-translate-y-1.5 hover:border-[#D5B66D]/60 hover:shadow-[0_20px_50px_rgba(24,61,45,0.10)]"
                   >
                     {/* Image */}
                     <div className="relative h-[260px] overflow-hidden">
@@ -470,47 +554,68 @@ export default function Home() {
                     </div>
 
                     {/* Content */}
-                    <div className="p-5 sm:p-6">
-                      <div className="mb-3 flex items-center gap-1 text-[#C3A45D]">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            size={11}
-                            fill="currentColor"
+                    <div className="flex flex-1 flex-col justify-between p-5 sm:p-6">
+                      <div>
+                        <div className="mb-3 flex items-center gap-1 text-[#C3A45D]">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              size={11}
+                              fill="currentColor"
+                            />
+                          ))}
+
+                          <span className="ml-2 text-[10px] text-[#8C9289]">
+                            Featured
+                          </span>
+                        </div>
+
+                        <h3 className="font-serif text-xl leading-snug text-[#183D2D] transition group-hover:text-[#B4934C]">
+                          {getServiceName(service)}
+                        </h3>
+
+                        <p className="mt-2 line-clamp-2 min-h-[48px] text-xs leading-6 text-[#747B73]">
+                          {service.description ||
+                            "Discover an unforgettable wedding experience with our trusted professionals."}
+                        </p>
+                      </div>
+
+                      <div>
+                        {/* Vendor Information */}
+                        <div className="mt-4 flex items-center gap-2.5 border-t border-[#f0eae1] pt-3.5">
+                          <img
+                            src={getVendorAvatar(service)}
+                            alt={getVendorName(service)}
+                            className="size-8 rounded-full bg-muted object-cover shrink-0 border border-[#D5B66D]/30"
                           />
-                        ))}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-[#183D2D] leading-tight">
+                              {getVendorName(service)}
+                            </p>
+                            <p className="text-[11px] text-[#888] leading-tight mt-0.5">
+                              {getVendorTitle(service)}
+                            </p>
+                          </div>
+                        </div>
 
-                        <span className="ml-2 text-[10px] text-[#8C9289]">
-                          Featured
-                        </span>
-                      </div>
+                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#E8E1D3] pt-4">
+                          <span className="text-[10px] uppercase tracking-wider text-[#8C9289]">
+                            Starting from
+                          </span>
 
-                      <h3 className="font-serif text-xl leading-snug text-[#183D2D] transition group-hover:text-[#B4934C]">
-                        {getServiceName(service)}
-                      </h3>
+                          <span className="font-medium text-sm text-[#183D2D]">
+                            {getServicePrice(service)}
+                          </span>
+                        </div>
 
-                      <p className="mt-2 line-clamp-2 min-h-[48px] text-xs leading-6 text-[#747B73]">
-                        {service.description ||
-                          "Discover an unforgettable wedding experience with our trusted professionals."}
-                      </p>
-
-                      <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#E8E1D3] pt-4">
-                        <span className="text-[10px] uppercase tracking-wider text-[#8C9289]">
-                          Starting from
-                        </span>
-
-                        <span className="font-medium text-sm text-[#183D2D]">
-                          {getServicePrice(service)}
-                        </span>
-                      </div>
-
-                      {/* View Details CTA */}
-                      <div className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#183D2D] px-5 py-3 text-xs font-semibold text-white transition duration-300 group-hover:bg-[#D5B66D] group-hover:text-[#183D2D]">
-                        View Details
-                        <ArrowRight
-                          size={14}
-                          className="transition-transform duration-300 group-hover:translate-x-1"
-                        />
+                        {/* View Details CTA */}
+                        <div className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#183D2D] px-5 py-3 text-xs font-semibold text-white transition duration-300 group-hover:bg-[#D5B66D] group-hover:text-[#183D2D]">
+                          View Details
+                          <ArrowRight
+                            size={14}
+                            className="transition-transform duration-300 group-hover:translate-x-1"
+                          />
+                        </div>
                       </div>
                     </div>
                   </Link>
@@ -557,19 +662,18 @@ export default function Home() {
             <div className="mb-4 flex items-center justify-center gap-3">
               <span className="h-px w-8 bg-[#D5B66D]" />
               <p className="text-[10px] uppercase tracking-[3px] text-[#D5B66D]">
-                Explore your possibilities
+                Browse by Category
               </p>
               <span className="h-px w-8 bg-[#D5B66D]" />
             </div>
 
             <h2 className="font-serif text-4xl font-medium sm:text-5xl">
-              Every Detail,
-              <span className="italic text-[#D5B66D]"> Perfectly Yours.</span>
+              Wedding Service Categories
             </h2>
 
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/60">
-              From the grandest moments to the smallest details, find the
-              perfect people to bring your wedding vision to life.
+              Explore trusted professionals and artisans across every category of
+              your dream celebration.
             </p>
           </div>
 
@@ -656,47 +760,45 @@ export default function Home() {
             <div className="mb-4 flex items-center gap-3">
               <span className="h-px w-8 bg-[#B4934C]" />
               <p className="text-[10px] uppercase tracking-[3px] text-[#B4934C]">
-                The WedPlan Promise
+                Platform Benefits
               </p>
             </div>
 
             <h2 className="font-serif text-4xl font-medium leading-tight sm:text-5xl">
-              Your Wedding,
-              <br />
-              <span className="italic text-[#B4934C]">Your Way.</span>
+              Why Choose WedPlan?
             </h2>
 
             <p className="mt-5 text-sm leading-7 text-[#737B72]">
-              We believe planning your wedding should feel as beautiful as the
-              day itself. WedPlan brings couples and wedding professionals
-              together in one thoughtfully designed platform.
+              We believe planning your wedding should feel as beautiful and seamless as the
+              day itself. WedPlan brings couples and verified wedding professionals
+              together with transparent pricing, guaranteed dates, and thoughtful coordination.
             </p>
 
             <div className="mt-9 space-y-7">
               {[
                 {
                   icon: ShieldCheck,
-                  title: "Trusted Professionals",
+                  title: "100% Verified Professionals",
                   description:
-                    "Explore wedding vendors reviewed and approved by our team.",
+                    "Explore wedding vendors carefully vetted, approved, and reviewed by our curation team.",
                 },
                 {
                   icon: Search,
-                  title: "Effortless Discovery",
+                  title: "Effortless Discovery & Quotes",
                   description:
-                    "Find your perfect venue, photographer, florist and more.",
+                    "Compare transparent packages and check real-time availability across top venues, photo, decor, and fashion.",
                 },
                 {
                   icon: CalendarCheck,
-                  title: "Simplified Planning",
+                  title: "Simplified Planning & Requests",
                   description:
-                    "Keep your booking requests and wedding plans organized.",
+                    "Send direct booking requests, monitor vendor responses, and keep every contract and date organized in one place.",
                 },
                 {
                   icon: Gem,
-                  title: "A Beautiful Experience",
+                  title: "Unmatched Peace of Mind",
                   description:
-                    "A thoughtful way to bring your wedding vision together.",
+                    "A stress-free wedding planning experience backed by dedicated customer support for your celebration.",
                 },
               ].map((feature) => {
                 const Icon = feature.icon;
@@ -742,13 +844,13 @@ export default function Home() {
             <div className="mb-4 flex items-center justify-center gap-3">
               <span className="h-px w-8 bg-[#B4934C]" />
               <p className="text-[10px] uppercase tracking-[3px] text-[#B4934C]">
-                Your journey starts here
+                Simple 3-Step Process
               </p>
               <span className="h-px w-8 bg-[#B4934C]" />
             </div>
 
             <h2 className="font-serif text-4xl font-medium sm:text-5xl">
-              A Beautifully Simple Journey
+              How WedPlan Works
             </h2>
 
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#737B72]">
@@ -870,18 +972,18 @@ export default function Home() {
             <div className="mb-4 flex items-center justify-center gap-3">
               <span className="h-px w-8 bg-[#B4934C]" />
               <p className="text-[10px] uppercase tracking-[3px] text-[#B4934C]">
-                Kind words
+                Couples Love WedPlan
               </p>
               <span className="h-px w-8 bg-[#B4934C]" />
             </div>
 
             <h2 className="font-serif text-4xl font-medium sm:text-5xl">
-              Love Notes From Couples
+              Customer Testimonials
             </h2>
 
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#737B72]">
               The most beautiful stories are the ones made with love, care and
-              a little help along the way.
+              trusted professionals by your side.
             </p>
           </div>
 
@@ -910,6 +1012,55 @@ export default function Home() {
                     {testimonial.role}
                   </p>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= WEDDING PLANNING TIPS ================= */}
+      <section className="border-t border-[#E8E1D3] bg-[#F7F4EC] px-5 py-20 sm:px-8 md:py-24 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="text-center">
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <span className="h-px w-8 bg-[#B4934C]" />
+              <p className="text-[10px] uppercase tracking-[3px] text-[#B4934C]">
+                Expert Guidance
+              </p>
+              <span className="h-px w-8 bg-[#B4934C]" />
+            </div>
+
+            <h2 className="font-serif text-4xl font-medium sm:text-5xl">
+              Wedding Planning Tips
+            </h2>
+
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#737B72]">
+              Thoughtful advice and insider secrets from wedding curators to help you prepare every detail with grace.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-8 md:grid-cols-3">
+            {weddingPlanningTips.map((tip) => (
+              <div
+                key={tip.number}
+                className="group rounded-2xl border border-[#E8E1D3] bg-white p-7 transition duration-300 hover:-translate-y-1 hover:border-[#D5B66D]/60 hover:shadow-md sm:p-8"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-serif text-3xl font-medium text-[#B4934C]">
+                    {tip.number}
+                  </span>
+                  <div className="flex size-10 items-center justify-center rounded-full bg-[#FAF8F2] text-[#183D2D] border border-[#D5B66D]/30 group-hover:bg-[#183D2D] group-hover:text-white transition">
+                    <BookOpen size={16} />
+                  </div>
+                </div>
+
+                <h3 className="mt-5 font-serif text-xl font-medium text-[#183D2D]">
+                  {tip.title}
+                </h3>
+
+                <p className="mt-3 text-xs leading-6 text-[#737B72]">
+                  {tip.description}
+                </p>
               </div>
             ))}
           </div>

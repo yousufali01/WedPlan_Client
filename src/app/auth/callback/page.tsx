@@ -41,6 +41,17 @@ function AuthCallbackContent() {
       return;
     }
 
+    // If user has a specific redirect target (e.g. service details page)
+    const redirectTarget = searchParams.get("redirect") || searchParams.get("callbackURL");
+    if (
+      redirectTarget &&
+      redirectTarget.startsWith("/") &&
+      !redirectTarget.startsWith("//")
+    ) {
+      router.replace(redirectTarget);
+      return;
+    }
+
     // Role-based routing
     if (role === "admin") {
       router.replace(siteConfig.dashboards.admin);

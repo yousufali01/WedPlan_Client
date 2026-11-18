@@ -1,3 +1,4 @@
+import * as React from "react";
 import type { Metadata } from "next";
 
 import { SignInForm } from "@/components/auth/sign-in-form";
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function SignInPage() {
-  return <SignInForm />;
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <SignInForm />
+    </React.Suspense>
+  );
 }
+

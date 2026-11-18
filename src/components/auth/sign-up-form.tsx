@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -183,6 +183,8 @@ function GoogleIcon({ className }: { className?: string }) {
 
 export function SignUpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackURL = searchParams.get("callbackURL") || searchParams.get("callbackUrl");
 
   const {
     control,
@@ -323,11 +325,12 @@ export function SignUpForm() {
     }
 
     try {
-      const callbackURL = `${window.location.origin}/auth/callback?role=${role}`;
+      const redirectQuery = callbackURL ? `&redirect=${encodeURIComponent(callbackURL)}` : "";
+      const googleCallbackURL = `${window.location.origin}/auth/callback?role=${role}${redirectQuery}`;
       const { error } = await authClient.signIn.social({
         provider: "google",
-        callbackURL,
-        newUserCallbackURL: callbackURL,
+        callbackURL: googleCallbackURL,
+        newUserCallbackURL: googleCallbackURL,
       });
 
       if (error) {
@@ -384,7 +387,13 @@ export function SignUpForm() {
         description: "Your account has been created successfully.",
       });
 
-      if (values.role === "vendor") {
+      if (
+        callbackURL &&
+        callbackURL.startsWith("/") &&
+        !callbackURL.startsWith("//")
+      ) {
+        router.replace(callbackURL);
+      } else if (values.role === "vendor") {
         router.replace(siteConfig.dashboards.vendor);
       } else {
         router.replace(siteConfig.dashboards.customer);
@@ -753,7 +762,11 @@ export function SignUpForm() {
           <p className="mt-5 border-t border-border pt-5 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link
-              href={siteConfig.routes.signIn}
+              href={
+                callbackURL
+                  ? `${siteConfig.routes.signIn}?callbackURL=${encodeURIComponent(callbackURL)}`
+                  : siteConfig.routes.signIn
+              }
               className="rounded-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               Sign in

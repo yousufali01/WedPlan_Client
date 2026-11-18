@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   ChevronDown,
@@ -11,6 +12,8 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { siteConfig } from "@/config/site";
 
 type Service = {
@@ -43,14 +46,12 @@ type Service = {
 
 const CATEGORIES = [
   "All Categories",
-  "Wedding Venues",
   "Photography & Videography",
+  "Wedding Venues",
   "Decoration & Florist",
+  "Catering Services",
+  "Makeup & Styling",
   "Wedding Fashion",
-  "Catering",
-  "Bridal Makeup",
-  "Wedding Planning",
-  "Music & Entertainment",
   "Other",
 ];
 
@@ -233,21 +234,43 @@ function parsePriceNumber(service: Service): number {
   return 0;
 }
 
-export default function BrowseServicesPage() {
+function BrowseServicesContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuth();
+
   const [services, setServices] = React.useState<Service[]>(DEFAULT_SERVICES);
   const [isLoading, setIsLoading] = React.useState(true);
 
+  const urlCategory = searchParams.get("category");
+
   // Filters state
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [categoryFilter, setCategoryFilter] = React.useState("All Categories");
+  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null);
   const [locationFilter, setLocationFilter] = React.useState("");
   const [sortOption, setSortOption] = React.useState<"featured" | "price-low" | "price-high">("featured");
 
   // Submitted search terms
   const [activeSearch, setActiveSearch] = React.useState("");
-  const [activeCategory, setActiveCategory] = React.useState("All Categories");
+  const [activeCategoryState, setActiveCategoryState] = React.useState<string | null>(null);
   const [activeLocation, setActiveLocation] = React.useState("");
   const [activeSort, setActiveSort] = React.useState<"featured" | "price-low" | "price-high">("featured");
+
+  const categoryFilter = selectedCategory ?? (urlCategory || "All Categories");
+  const activeCategory = activeCategoryState ?? (urlCategory || "All Categories");
+
+  const handleViewDetails = React.useCallback(
+    (e: React.MouseEvent, serviceId: string) => {
+      if (!isAuthenticated) {
+        e.preventDefault();
+        toast.info("Please sign in to view wedding service details.");
+        router.push(
+          `${siteConfig.routes.signIn}?callbackURL=${encodeURIComponent(`/services/${serviceId}`)}`
+        );
+      }
+    },
+    [isAuthenticated, router]
+  );
 
   const fetchServices = React.useCallback(async () => {
     setIsLoading(true);
@@ -297,7 +320,7 @@ export default function BrowseServicesPage() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setActiveSearch(searchTerm);
-    setActiveCategory(categoryFilter);
+    setActiveCategoryState(categoryFilter);
     setActiveLocation(locationFilter);
     setActiveSort(sortOption);
   };
@@ -305,11 +328,19 @@ export default function BrowseServicesPage() {
   const filteredServices = React.useMemo(() => {
     return services
       .filter((service) => {
+        const sCat = (service.category || "").toLowerCase();
+        const aCat = activeCategory.toLowerCase();
         const matchesCategory =
           activeCategory === "All Categories" ||
-          (service.category || "")
-            .toLowerCase()
-            .includes(activeCategory.toLowerCase());
+          sCat === aCat ||
+          sCat.includes(aCat) ||
+          aCat.includes(sCat) ||
+          (aCat.includes("cater") && sCat.includes("cater")) ||
+          (aCat.includes("photo") && sCat.includes("photo")) ||
+          (aCat.includes("decor") && sCat.includes("decor")) ||
+          (aCat.includes("venue") && sCat.includes("venue")) ||
+          (aCat.includes("fashion") && sCat.includes("fashion")) ||
+          (aCat.includes("makeup") && (sCat.includes("makeup") || sCat.includes("bridal")));
 
         const name = getServiceName(service).toLowerCase();
         const desc = (service.description || "").toLowerCase();
@@ -376,7 +407,10 @@ export default function BrowseServicesPage() {
             <div className="relative flex items-center rounded-xl border border-[#e6dfd5] bg-white px-3 py-2.5 focus-within:border-primary transition">
               <select
                 value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setActiveCategoryState(e.target.value);
+                }}
                 className="w-full bg-transparent text-xs sm:text-sm text-[#183D2D] outline-none cursor-pointer pr-6 appearance-none"
               >
                 {CATEGORIES.map((cat) => (
@@ -455,11 +489,11 @@ export default function BrowseServicesPage() {
               type="button"
               onClick={() => {
                 setSearchTerm("");
-                setCategoryFilter("All Categories");
+                setSelectedCategory("All Categories");
+                setActiveCategoryState("All Categories");
                 setLocationFilter("");
                 setSortOption("featured");
                 setActiveSearch("");
-                setActiveCategory("All Categories");
                 setActiveLocation("");
                 setActiveSort("featured");
               }}
@@ -557,6 +591,7 @@ export default function BrowseServicesPage() {
                     {/* View Details Button */}
                     <Link
                       href={`${siteConfig.routes.services}/${serviceId}`}
+                      onClick={(e) => handleViewDetails(e, serviceId)}
                       className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#183D2D] py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#122e22]"
                     >
                       View Details
@@ -570,5 +605,19 @@ export default function BrowseServicesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function BrowseServicesPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <Loader2 className="size-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <BrowseServicesContent />
+    </React.Suspense>
   );
 }

@@ -217,12 +217,22 @@ const DEFAULT_SERVICES_MAP: Record<string, ServiceDetail> = {
 function ServiceDetailsContent() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isPending, isAuthenticated } = useAuth();
   const serviceId = (params?.id as string) || "";
 
   const [service, setService] = React.useState<ServiceDetail | null>(null);
   const [activeImage, setActiveImage] = React.useState<string>("");
   const [isLoading, setIsLoading] = React.useState(true);
+
+  // Authentication check: redirect to sign-in if not logged in
+  React.useEffect(() => {
+    if (!isPending && !isAuthenticated) {
+      toast.info("Please sign in to view wedding service details.");
+      router.replace(
+        `${siteConfig.routes.signIn}?callbackURL=${encodeURIComponent(`/services/${serviceId}`)}`
+      );
+    }
+  }, [isPending, isAuthenticated, router, serviceId]);
 
   // Booking Form States
   const [eventDate, setEventDate] = React.useState("");
@@ -322,11 +332,15 @@ function ServiceDetailsContent() {
     }
   };
 
-  if (isLoading) {
+  if (isPending || !isAuthenticated || isLoading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Loading wedding service details...</p>
+        <p className="text-sm text-muted-foreground">
+          {isPending || !isAuthenticated
+            ? "Verifying authentication..."
+            : "Loading wedding service details..."}
+        </p>
       </div>
     );
   }
