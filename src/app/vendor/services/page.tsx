@@ -263,9 +263,8 @@ export default function MyServicesPage() {
 
   return (
     <ProtectedRoute allowedRoles={["vendor", "admin"]}>
-      <div className="min-h-screen bg-[#faf9f6] px-4 py-7 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          {/* Header */}
+      <div className="flex flex-col gap-6">
+        {/* Header */}
           <div className="flex flex-col justify-between gap-5 border-b border-[#e9e1d8] pb-6 sm:flex-row sm:items-center">
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
@@ -513,7 +512,6 @@ export default function MyServicesPage() {
               </div>
             )}
           </section>
-        </div>
 
         {/* Edit Modal */}
         {editingService && (

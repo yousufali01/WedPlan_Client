@@ -181,3 +181,27 @@ Fixed all critical auth state bugs, Google redirect loops, undefined dashboard p
    - Added `adminClient()` and `jwtClient()` plugins in `src/lib/auth-client.ts` to support `authClient.token()` and typed admin operations.
    - Resolved React 19 `react-hooks/set-state-in-effect` in `src/hooks/use-mobile.ts` using `useSyncExternalStore` and `carousel.tsx`.
    - Verified: `npx tsc --noEmit` exits with 0 errors; `npx eslint src` exits with 0 errors.
+
+## Task: Vendor Portal — Shared Shell (persistent sticky sidebar + fixed routes)
+
+**Problem (user-reported):** the vendor sidebar lived only inside the overview page's JSX, so navigating to any other vendor route (e.g. Subscription) lost the sidebar entirely; sidebar links also pointed at routes that did not exist (`/vendor/subscription`, `/vendor/bookings`, `/vendor/profile`), producing 404s.
+
+**What was built:**
+
+- `src/components/layout/vendor-sidebar.tsx` — shared sidebar content (`VendorSidebarContent`): Workspace header (Vendor Portal + Free/Premium badge + business name), 6 nav items with active state via `usePathname` (exact match for Overview/My Services/Add Service, prefix for the rest), pending-bookings count badge fetched from `/api/v1/bookings`, and the bottom **premium plan card** (plan name, `X of 3 free service listings used` usage line from `/api/v1/services/mine`, "Explore Premium" link) — now visible on every vendor page, not just overview. Accepts `onNavigate` to close the mobile drawer.
+- `src/components/layout/vendor-shell.tsx` — client shell (`VendorShell`): `ProtectedRoute allowedRoles={["vendor","admin"]}`, sticky mobile header with hamburger, Base UI `Sheet` left drawer for mobile, desktop `aside` with `sticky top-20 h-[calc(100vh-6rem)] overflow-y-auto` (sidebar stays fixed while content scrolls), shared footer with `CopyrightYear`.
+- `src/app/vendor/layout.tsx` — server layout rendering `VendorShell` around every `/vendor/*` page.
+- `src/app/vendor/dashboard/page.tsx` — **rewritten**: removed the inline mobile header/aside/footer; now only page content (heading, approval alert, 4 stat cards, subscription usage card, recent bookings).
+- `src/app/vendor/subscription/page.tsx` — **moved from `/vendor/dashboard/subscription`** (old dir deleted) so the sidebar href works; rewritten in overview's visual language (white `border-[#e9e1d8]` cards, gold `border-[#eadbb5]` active-plan + recommended accents), switched raw `fetch`+`NEXT_PUBLIC_API_URL` to `apiRequest`, added `ProtectedRoute`.
+- `src/app/vendor/bookings/page.tsx` — **new**: full booking-request list with status filter pills (All/Pending/Accepted/Rejected/Cancelled), Accept/Decline via `PATCH /api/v1/bookings/:id/status`, empty state.
+- `src/app/vendor/profile/page.tsx` — **new**: account card (avatar, name/email, Vendor + approval badges), business info tiles, plan card with Manage/Upgrade CTA, quick-action links.
+- `src/app/vendor/services/page.tsx` + `src/app/vendor/services/new/page.tsx` — dropped their standalone `min-h-screen bg-[#faf9f6] px-…` + `max-w-*` chrome (shell provides it); fixed orphaned closing tags.
+
+**Vendor route map (final):** `/vendor/dashboard` Overview · `/vendor/services` My Services · `/vendor/services/new` Add Service · `/vendor/bookings` Booking Requests · `/vendor/subscription` Subscription · `/vendor/profile` Profile Settings.
+
+**Decisions / gotchas:**
+
+- `react-hooks/set-state-in-effect` rejects closing the mobile drawer in a `useEffect` on pathname change. Not needed: every sidebar link already calls `onNavigate` → `setMobileOpen(false)`.
+- Deleting `.next` (needed to clear stale route types for the removed `/vendor/dashboard/subscription`) also wiped Next's generated `LayoutProps` global type → `tsc` fails until `npx next typegen` is re-run. If `Cannot find name 'LayoutProps'` appears after clearing `.next`, run `npx next typegen` first.
+- `src/app/page.tsx` home footer had a raw `new Date().getFullYear()` (blocked value under `cacheComponents`) that crashed `npm run build`; replaced with the documented `<CopyrightYear />` component.
+- Verified: `tsc --noEmit` 0 errors, `eslint src` 0 errors (only pre-existing `<img>` warnings), `npm run build` ✓ all routes static, `next start` smoke test: all 6 `/vendor/*` routes → 200 with the ProtectedRoute shell in SSR HTML.

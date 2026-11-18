@@ -238,9 +238,8 @@ export default function AddNewServicePage() {
 
   return (
     <ProtectedRoute allowedRoles={["vendor"]}>
-      <main className="min-h-screen bg-[#faf9f6] px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl">
-          {/* Back button */}
+      <div className="flex flex-col gap-6">
+        {/* Back button */}
           <Link
             href="/vendor/services"
             className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
@@ -545,8 +544,7 @@ export default function AddNewServicePage() {
               </Button>
             </div>
           </form>
-        </div>
-      </main>
+      </div>
     </ProtectedRoute>
   );
 }
