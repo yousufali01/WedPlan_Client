@@ -479,6 +479,269 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ================= CATEGORIES ================= */}
+      <section className="relative overflow-hidden bg-[#183D2D] px-5 py-20 text-white sm:px-8 md:py-24 lg:px-12">
+        {/* Subtle background detail */}
+        <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full border border-[#D5B66D]/10" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full border border-[#D5B66D]/10" />
+
+        <div className="relative mx-auto max-w-7xl">
+          <div className="mb-12 text-center">
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <span className="h-px w-8 bg-[#D5B66D]" />
+              <p className="text-[10px] uppercase tracking-[3px] text-[#D5B66D]">
+                Explore your possibilities
+              </p>
+              <span className="h-px w-8 bg-[#D5B66D]" />
+            </div>
+
+            <h2 className="font-serif text-4xl font-medium sm:text-5xl">
+              Every Detail,
+              <span className="italic text-[#D5B66D]"> Perfectly Yours.</span>
+            </h2>
+
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/60">
+              From the grandest moments to the smallest details, find the
+              perfect people to bring your wedding vision to life.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {categories.map((category, index) => {
+              const Icon = category.icon;
+
+              return (
+                <Link
+                  key={category.title}
+                  href={`${siteConfig.routes.services}?category=${encodeURIComponent(category.title)}`}
+                  className="category-card group relative h-[330px] overflow-hidden rounded-2xl border border-white/10"
+                  style={{
+                    animationDelay: `${index * 100}ms`,
+                  }}
+                >
+                  {/* Image */}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-110"
+                    style={{
+                      backgroundImage: `url('${category.image}')`,
+                    }}
+                  />
+
+                  {/* Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0D281D]/95 via-[#0D281D]/25 to-[#0D281D]/5 transition group-hover:from-[#0D281D]/90" />
+
+                  {/* Content */}
+                  <div className="absolute bottom-0 left-0 w-full p-6 sm:p-7">
+                    <div className="mb-5 flex size-12 items-center justify-center rounded-full border border-[#D5B66D]/50 bg-[#183D2D]/60 text-[#D5B66D] backdrop-blur-md transition duration-300 group-hover:bg-[#D5B66D] group-hover:text-[#183D2D]">
+                      <Icon size={19} />
+                    </div>
+
+                    <h3 className="font-serif text-2xl text-white">
+                      {category.title}
+                    </h3>
+
+                    <p className="mt-2 text-xs text-white/65">
+                      {category.description}
+                    </p>
+
+                    <div className="mt-5 flex items-center gap-2 text-[10px] font-medium uppercase tracking-[1.5px] text-[#D5B66D]">
+                      Discover More
+                      <ArrowRight
+                        size={13}
+                        className="transition-transform group-hover:translate-x-1"
+                      />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+            {/* ================= WHY WEDPLAN ================= */}
+      <section id="about" className="px-5 py-20 sm:px-8 md:py-24 lg:px-12">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 lg:grid-cols-2 lg:gap-20">
+          {/* Image */}
+          <div className="relative">
+            <div
+              className="relative h-[400px] overflow-hidden rounded-2xl bg-cover bg-center sm:h-[520px]"
+              style={{
+                backgroundImage:
+                  "url('https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=1200&q=90')",
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-[#183D2D]/30 to-transparent" />
+            </div>
+
+            {/* Floating badge */}
+            <div className="absolute -bottom-5 -right-3 hidden rounded-2xl border border-[#D5B66D]/30 bg-[#D5B66D] p-6 text-[#183D2D] shadow-xl sm:block">
+              <Heart size={22} className="mb-3" />
+              <p className="font-serif text-2xl">Made with Love</p>
+              <p className="mt-1 text-xs">Planned with care</p>
+            </div>
+
+            {/* Decorative frame */}
+            <div className="pointer-events-none absolute -left-4 -top-4 -z-10 h-full w-full rounded-2xl border border-[#D5B66D]/50" />
+          </div>
+
+          {/* Content */}
+          <div>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="h-px w-8 bg-[#B4934C]" />
+              <p className="text-[10px] uppercase tracking-[3px] text-[#B4934C]">
+                The WedPlan Promise
+              </p>
+            </div>
+
+            <h2 className="font-serif text-4xl font-medium leading-tight sm:text-5xl">
+              Your Wedding,
+              <br />
+              <span className="italic text-[#B4934C]">Your Way.</span>
+            </h2>
+
+            <p className="mt-5 text-sm leading-7 text-[#737B72]">
+              We believe planning your wedding should feel as beautiful as the
+              day itself. WedPlan brings couples and wedding professionals
+              together in one thoughtfully designed platform.
+            </p>
+
+            <div className="mt-9 space-y-7">
+              {[
+                {
+                  icon: ShieldCheck,
+                  title: "Trusted Professionals",
+                  description:
+                    "Explore wedding vendors reviewed and approved by our team.",
+                },
+                {
+                  icon: Search,
+                  title: "Effortless Discovery",
+                  description:
+                    "Find your perfect venue, photographer, florist and more.",
+                },
+                {
+                  icon: CalendarCheck,
+                  title: "Simplified Planning",
+                  description:
+                    "Keep your booking requests and wedding plans organized.",
+                },
+                {
+                  icon: Gem,
+                  title: "A Beautiful Experience",
+                  description:
+                    "A thoughtful way to bring your wedding vision together.",
+                },
+              ].map((feature) => {
+                const Icon = feature.icon;
+
+                return (
+                  <div key={feature.title} className="flex gap-4">
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-full border border-[#D5B66D]/30 bg-[#F0EBDF] text-[#183D2D]">
+                      <Icon size={19} />
+                    </div>
+
+                    <div>
+                      <h3 className="font-serif text-lg text-[#183D2D]">
+                        {feature.title}
+                      </h3>
+
+                      <p className="mt-1.5 text-xs leading-6 text-[#737B72]">
+                        {feature.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <Link
+              href={siteConfig.routes.services}
+              className="group mt-9 inline-flex items-center gap-3 border-b border-[#D5B66D] pb-2 text-xs font-semibold text-[#183D2D]"
+            >
+              Discover the WedPlan Experience
+              <ArrowRight
+                size={15}
+                className="transition-transform group-hover:translate-x-1"
+              />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= HOW IT WORKS ================= */}
+      <section className="border-y border-[#E8E1D3] bg-[#F1EBDD] px-5 py-20 sm:px-8 md:py-24 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="text-center">
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <span className="h-px w-8 bg-[#B4934C]" />
+              <p className="text-[10px] uppercase tracking-[3px] text-[#B4934C]">
+                Your journey starts here
+              </p>
+              <span className="h-px w-8 bg-[#B4934C]" />
+            </div>
+
+            <h2 className="font-serif text-4xl font-medium sm:text-5xl">
+              A Beautifully Simple Journey
+            </h2>
+
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#737B72]">
+              Three thoughtful steps to turn your wedding dreams into a
+              celebration you will cherish forever.
+            </p>
+          </div>
+
+          <div className="mt-16 grid gap-12 md:grid-cols-3">
+            {[
+              {
+                number: "01",
+                icon: Search,
+                title: "Discover",
+                description:
+                  "Explore beautiful wedding services, discover trusted vendors and find inspiration for your celebration.",
+              },
+              {
+                number: "02",
+                icon: CalendarCheck,
+                title: "Plan & Book",
+                description:
+                  "Choose your preferred professionals and send booking requests for your special day.",
+              },
+              {
+                number: "03",
+                icon: Heart,
+                title: "Celebrate",
+                description:
+                  "Keep your plans organized and enjoy the journey towards your unforgettable wedding.",
+              },
+            ].map((step) => (
+              <div
+                key={step.number}
+                className="group relative border-t border-[#D5B66D]/50 pt-7"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-serif text-5xl text-[#D5B66D]">
+                    {step.number}
+                  </span>
+
+                  <div className="flex size-12 items-center justify-center rounded-full border border-[#D5B66D]/40 text-[#183D2D] transition duration-300 group-hover:bg-[#183D2D] group-hover:text-[#D5B66D]">
+                    <step.icon size={20} />
+                  </div>
+                </div>
+
+                <h3 className="mt-6 font-serif text-2xl text-[#183D2D]">
+                  {step.title}
+                </h3>
+
+                <p className="mt-4 max-w-sm text-sm leading-7 text-[#737B72]">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+
 
       {/* ================= GLOBAL HOMEPAGE ANIMATIONS ================= */}
       <style jsx global>{`
