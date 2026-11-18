@@ -2,16 +2,24 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
-  AlertCircle,
-  CalendarCheck,
+  LayoutDashboard,
+  BriefcaseBusiness,
+  PlusCircle,
+  CalendarDays,
+  Crown,
+  Settings,
   CheckCircle2,
-  Clock,
-  Loader2,
-  Plus,
+  Clock3,
+  CalendarCheck,
   RefreshCw,
+  Loader2,
+  ArrowUpRight,
   Store,
+  Menu,
   XCircle,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +28,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import { siteConfig } from "@/config/site";
+import { CopyrightYear } from "@/components/layout/copyright-year";
 
 type Booking = {
   _id: string;
@@ -41,29 +50,104 @@ type ServiceItem = {
   availability: boolean;
 };
 
+type VendorProfile = {
+  name?: string;
+  businessName?: string;
+  studioName?: string;
+  vendorApproved?: boolean;
+  plan?: string;
+  subscriptionPlan?: string;
+  subscription?: {
+    plan?: string;
+    name?: string;
+  };
+};
+
+const vendorNavigation = [
+  {
+    label: "Overview",
+    href: "/vendor/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    label: "My Services",
+    href: "/vendor/services",
+    icon: BriefcaseBusiness,
+  },
+  {
+    label: "Add Service",
+    href: "/vendor/services/new",
+    icon: PlusCircle,
+  },
+  {
+    label: "Booking Requests",
+    href: "/vendor/bookings",
+    icon: CalendarDays,
+  },
+  {
+    label: "Subscription",
+    href: "/vendor/subscription",
+    icon: Crown,
+  },
+  {
+    label: "Profile Settings",
+    href: "/vendor/profile",
+    icon: Settings,
+  },
+];
+
 export default function VendorDashboardPage() {
   const { user } = useAuth();
+  const pathname = usePathname();
+
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [services, setServices] = React.useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
+  const vendor = user as VendorProfile | null;
+
+  // Vendor information
+  const vendorName =
+    vendor?.businessName || vendor?.studioName || vendor?.name || "Your Studio";
+
+  const isApproved = vendor?.vendorApproved === true;
+
+  // Subscription information
+  const planName =
+    vendor?.subscription?.plan ||
+    vendor?.subscription?.name ||
+    vendor?.subscriptionPlan ||
+    vendor?.plan ||
+    "Free Plan";
+
+  const normalizedPlan = planName.toLowerCase();
+  const isPremium = normalizedPlan.includes("premium");
+
+  const planLimit = isPremium ? Infinity : 3;
+
+  // Fetch vendor data
   const fetchVendorData = React.useCallback(async () => {
     setIsLoading(true);
+
     try {
       const [bookingsRes, servicesRes] = await Promise.allSettled([
         apiRequest<{ bookings: Booking[] }>("/api/v1/bookings"),
         apiRequest<{ services: ServiceItem[] }>("/api/v1/services"),
+        
       ]);
 
       if (bookingsRes.status === "fulfilled" && bookingsRes.value.bookings) {
         setBookings(bookingsRes.value.bookings);
       }
+
       if (servicesRes.status === "fulfilled" && servicesRes.value.services) {
         setServices(servicesRes.value.services);
       }
-    } catch (err) {
-      console.error("Vendor data load note:", err);
+    } catch (error) {
+      console.error("Vendor dashboard error:", error);
+      toast.error("Unable to load dashboard data.");
     } finally {
       setIsLoading(false);
     }
@@ -73,14 +157,17 @@ export default function VendorDashboardPage() {
     const timer = setTimeout(() => {
       void fetchVendorData();
     }, 0);
+
     return () => clearTimeout(timer);
   }, [fetchVendorData]);
 
+  // Booking status update
   const handleBookingStatus = async (
     bookingId: string,
-    status: "accepted" | "rejected"
+    status: "accepted" | "rejected",
   ) => {
     setUpdatingId(bookingId);
+
     try {
       await apiRequest(`/api/v1/bookings/${bookingId}/status`, {
         method: "PATCH",
@@ -88,223 +175,529 @@ export default function VendorDashboardPage() {
       });
 
       toast.success(
-        status === "accepted" ? "Booking accepted!" : "Booking declined."
+        status === "accepted" ? "Booking accepted!" : "Booking declined.",
       );
 
       setBookings((prev) =>
-        prev.map((b) => (b._id === bookingId ? { ...b, status } : b))
+        prev.map((booking) =>
+          booking._id === bookingId ? { ...booking, status } : booking,
+        ),
       );
-    } catch (err) {
+    } catch (error) {
       toast.error("Failed to update booking status", {
-        description: err instanceof Error ? err.message : "Please try again.",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
       });
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const isApproved = user?.vendorApproved === true;
+  // Dynamic statistics
+  const totalServices = services.length;
+
+  const activeServices = isApproved
+    ? services.filter((service) => service.availability).length
+    : 0;
+
+  const pendingBookings = bookings.filter(
+    (booking) => booking.status === "pending",
+  ).length;
+
+  const acceptedBookings = bookings.filter(
+    (booking) => booking.status === "accepted",
+  ).length;
+
+  const statistics = [
+    {
+      label: "Total Services",
+      value: totalServices,
+      description: "Listed wedding services",
+      icon: BriefcaseBusiness,
+      iconClass: "bg-primary/10 text-primary",
+    },
+    {
+      label: "Approved & Active",
+      value: activeServices,
+      description: "Available services",
+      icon: CheckCircle2,
+      iconClass: "bg-emerald-100 text-emerald-700",
+    },
+    {
+      label: "Pending Requests",
+      value: pendingBookings,
+      description: "Waiting for your response",
+      icon: Clock3,
+      iconClass: "bg-amber-100 text-amber-700",
+    },
+    {
+      label: "Accepted Bookings",
+      value: acceptedBookings,
+      description: "Confirmed reservations",
+      icon: CalendarCheck,
+      iconClass: "bg-sky-100 text-sky-700",
+    },
+  ];
+
+  const recentBookings = [...bookings]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt || 0).getTime() -
+        new Date(a.createdAt || 0).getTime(),
+    )
+    .slice(0, 5);
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   return (
     <ProtectedRoute allowedRoles={["vendor", "admin"]}>
-      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
-                <Store className="size-3.5" aria-hidden="true" />
-                Vendor Portal
-              </span>
-              {isApproved ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                  <CheckCircle2 className="size-3" aria-hidden="true" />
-                  Approved Partner
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                  <Clock className="size-3" aria-hidden="true" />
-                  Pending Approval
-                </span>
-              )}
+      <div className="min-h-screen bg-[#faf9f6] text-foreground">
+        {/* Mobile Header */}
+        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background px-4 py-3 lg:hidden">
+          <Link href="/vendor/dashboard" className="flex items-center gap-2">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Store className="size-5" />
             </div>
-            <h1 className="mt-2 font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              Welcome, {user?.name || "Vendor"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage your listed wedding services, track client inquiries, and confirm bookings.
-            </p>
-          </div>
+            <span className="font-heading text-xl font-bold">WedPlan</span>
+          </Link>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchVendorData}
-              disabled={isLoading}
-              className="gap-1.5"
-            >
-              <RefreshCw
-                className={`size-3.5 ${isLoading ? "animate-spin" : ""}`}
-                aria-hidden="true"
-              />
-              Refresh
-            </Button>
-            <Button
-              size="sm"
-              render={<Link href={siteConfig.routes.services} />}
-              className="gap-1.5"
-            >
-              <Plus className="size-3.5" aria-hidden="true" />
-              Browse Services
-            </Button>
-          </div>
-        </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="Toggle navigation"
+          >
+            {isMobileMenuOpen ? (
+              <XCircle className="size-5" />
+            ) : (
+              <Menu className="size-5" />
+            )}
+          </Button>
+        </header>
 
-        {/* Approval Alert if Unapproved */}
-        {!isApproved && (
-          <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-amber-900 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-            <AlertCircle className="mt-0.5 size-5 shrink-0 text-amber-600" aria-hidden="true" />
-            <div className="flex-1 text-sm">
-              <p className="font-semibold">Application Under Admin Review</p>
-              <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
-                Your vendor account is currently being reviewed by our administration team. Once
-                approved, your services will be published to couples and you will be able to receive
-                live bookings.
-              </p>
-            </div>
-          </div>
-        )}
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 p-4 sm:p-6 lg:flex-row lg:gap-8 lg:p-8">
+          {/* Sidebar */}
+          <aside
+            className={`
+              ${isMobileMenuOpen ? "block" : "hidden"}
+              w-full shrink-0
+              lg:sticky lg:top-8 lg:block lg:h-[calc(100vh-64px)] lg:w-[260px]
+            `}
+          >
+            <div className="flex h-full flex-col rounded-2xl border border-[#e9e1d8] bg-white p-4 shadow-sm">
+              {/* Workspace */}
+              <div className="border-b border-[#e9e1d8] pb-5">
+                <p className="text-[11px] font-medium uppercase tracking-[1.5px] text-muted-foreground">
+                  Workspace
+                </p>
 
-        {/* Metrics Row */}
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium uppercase tracking-wider">My Listings</span>
-              <Store className="size-4 text-primary" aria-hidden="true" />
-            </div>
-            <p className="font-heading text-3xl font-semibold">{services.length}</p>
-            <p className="text-xs text-muted-foreground">Packages & Services</p>
-          </div>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <h2 className="font-heading text-xl font-semibold">
+                    Vendor Portal
+                  </h2>
 
-          <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium uppercase tracking-wider">Bookings Received</span>
-              <CalendarCheck className="size-4 text-primary" aria-hidden="true" />
-            </div>
-            <p className="font-heading text-3xl font-semibold">{bookings.length}</p>
-            <p className="text-xs text-muted-foreground">Client reservations</p>
-          </div>
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                    {isPremium ? "Premium" : "Free"}
+                  </span>
+                </div>
 
-          <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium uppercase tracking-wider">Partner Status</span>
-              <span
-                className={`size-2 rounded-full ${isApproved ? "bg-emerald-500" : "bg-amber-500"}`}
-              />
-            </div>
-            <p
-              className={`font-heading text-2xl font-semibold ${isApproved ? "text-emerald-600" : "text-amber-600"}`}
-            >
-              {isApproved ? "Active" : "In Review"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {isApproved ? "Public catalog visible" : "Pending administrator approval"}
-            </p>
-          </div>
-        </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {vendorName}
+                </p>
+              </div>
 
-        {/* Bookings Section */}
-        <section className="mt-10 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-heading text-xl font-semibold tracking-tight">Recent Bookings</h2>
-              <p className="text-xs text-muted-foreground">
-                Inquiries and reservation requests from couples planning their wedding.
-              </p>
-            </div>
-            <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium">
-              {bookings.length} Total
-            </span>
-          </div>
+              {/* Navigation */}
+              <nav className="mt-5 flex flex-col gap-2">
+                {vendorNavigation.map((item) => {
+                  const isActive = pathname === item.href;
+                  const Icon = item.icon;
 
-          {isLoading ? (
-            <div className="flex min-h-[160px] items-center justify-center rounded-2xl border border-dashed border-border bg-card">
-              <Loader2 className="size-6 animate-spin text-primary" />
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={closeMobileMenu}
+                      className={`
+                        flex items-center gap-3 rounded-xl px-3 py-3
+                        text-sm font-medium transition-all duration-200
+                        ${
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:bg-primary/5 hover:text-primary"
+                        }
+                      `}
+                    >
+                      <Icon className="size-[17px] shrink-0" />
+                      <span>{item.label}</span>
+
+                      {item.label === "Booking Requests" &&
+                        pendingBookings > 0 && (
+                          <span
+                            className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              isActive
+                                ? "bg-white/20 text-white"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {pendingBookings}
+                          </span>
+                        )}
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              {/* Bottom Subscription Info */}
+              <div className="mt-auto hidden rounded-xl border border-primary/15 bg-primary/[0.04] p-3 lg:block">
+                <div className="flex items-center gap-2">
+                  <Crown className="size-4 text-gold" />
+                  <span className="text-sm font-semibold">{planName}</span>
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  {isPremium
+                    ? "Enjoy your premium vendor benefits."
+                    : `${totalServices} of 3 free service listings used.`}
+                </p>
+
+                {!isPremium && (
+                  <Link
+                    href="/vendor/subscription"
+                    className="mt-3 flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                  >
+                    Explore Premium
+                    <ArrowUpRight className="size-3.5" />
+                  </Link>
+                )}
+              </div>
             </div>
-          ) : bookings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-8 text-center">
-              <CalendarCheck className="size-8 text-muted-foreground" aria-hidden="true" />
-              <p className="font-medium text-foreground">No booking requests yet</p>
-              <p className="text-xs text-muted-foreground">
-                Once couples discover your profile and book your packages, reservations will appear
-                here.
-              </p>
+          </aside>
+
+          {/* Main Content */}
+          <main className="min-w-0 flex-1">
+            {/* Dashboard Heading */}
+            <div className="flex flex-col justify-between gap-4 border-b border-[#e9e1d8] pb-5 sm:flex-row sm:items-center">
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[1.5px] text-primary">
+                    Vendor Workspace
+                  </span>
+
+                  <span
+                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                      isApproved
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {isApproved ? (
+                      <CheckCircle2 className="size-3" />
+                    ) : (
+                      <Clock3 className="size-3" />
+                    )}
+                    {isApproved ? "Approved Partner" : "Pending Approval"}
+                  </span>
+                </div>
+
+                <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl lg:text-[34px]">
+                  Vendor Dashboard Overview
+                </h1>
+
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Monitor your published wedding services, incoming couple
+                  requests, and subscription status.
+                </p>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void fetchVendorData()}
+                disabled={isLoading}
+                className="w-fit gap-2 border-[#e9e1d8] bg-white"
+              >
+                <RefreshCw
+                  className={`size-3.5 ${isLoading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </Button>
             </div>
-          ) : (
-            <div className="grid gap-3">
-              {bookings.map((booking) => (
-                <div
-                  key={booking._id}
-                  className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold">
-                        {booking.serviceName || "Wedding Service"}
+
+            {/* Approval Alert */}
+            {!isApproved && (
+              <div className="mt-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <Clock3 className="mt-0.5 size-5 shrink-0 text-amber-600" />
+
+                <div>
+                  <h3 className="text-sm font-semibold text-amber-900">
+                    Application Under Admin Review
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                    Your vendor account is currently being reviewed by our
+                    administration team. Once approved, your services can become
+                    visible to couples.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Statistics Cards */}
+            <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {statistics.map((stat) => {
+                const Icon = stat.icon;
+
+                return (
+                  <div
+                    key={stat.label}
+                    className="rounded-xl border border-[#e9e1d8] bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {stat.label}
                       </p>
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                          booking.status === "accepted"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                            : booking.status === "rejected"
-                              ? "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
-                              : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                        }`}
+
+                      <div
+                        className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${stat.iconClass}`}
                       >
-                        {booking.status}
-                      </span>
+                        <Icon className="size-5" />
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Client: {booking.customerName || "Couple"} &bull;{" "}
-                      {booking.eventDate
-                        ? `Event: ${new Date(booking.eventDate).toLocaleDateString()}`
-                        : "Date to be confirmed"}
+
+                    <p className="mt-3 font-heading text-3xl font-bold">
+                      {isLoading ? (
+                        <span className="inline-block h-8 w-10 animate-pulse rounded bg-muted" />
+                      ) : (
+                        stat.value
+                      )}
+                    </p>
+
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {stat.description}
                     </p>
                   </div>
+                );
+              })}
+            </section>
 
-                  {booking.status === "pending" && (
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={updatingId === booking._id}
-                        onClick={() => handleBookingStatus(booking._id, "rejected")}
-                        className="gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <XCircle className="size-3.5" aria-hidden="true" />
-                        Decline
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={updatingId === booking._id}
-                        onClick={() => handleBookingStatus(booking._id, "accepted")}
-                        className="gap-1"
-                      >
-                        {updatingId === booking._id ? (
-                          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-                        ) : (
-                          <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                        )}
-                        Accept
-                      </Button>
+            {/* Subscription Card */}
+            <section className="mt-6 overflow-hidden rounded-xl border border-[#eadbb5] bg-gradient-to-r from-[#fffdf7] via-white to-[#faf8f1] p-5 shadow-sm sm:p-6">
+              <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Crown className="size-5 text-gold" />
+
+                    <h2 className="font-heading text-xl font-bold">
+                      Current Subscription Plan
+                    </h2>
+
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-semibold text-primary">
+                      {planName}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+                    {isPremium
+                      ? "You are enjoying your Premium vendor plan. Manage your services and receive wedding booking requests."
+                      : "Free Plan allows up to 3 active wedding services. Upgrade to Premium for more service listings and additional benefits."}
+                  </p>
+
+                  {!isPremium && (
+                    <div className="mt-4">
+                      <div className="mb-1.5 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          Service usage
+                        </span>
+                        <span className="font-semibold text-foreground">
+                          {totalServices} / 3
+                        </span>
+                      </div>
+
+                      <div className="h-2 max-w-sm overflow-hidden rounded-full bg-[#eee8dc]">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{
+                            width: `${Math.min(
+                              (totalServices / 3) * 100,
+                              100,
+                            )}%`,
+                          }}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row md:flex-col">
+                  <Button
+                    variant="outline"
+                    render={<Link href="/vendor/services/new" />}
+                    className="gap-2 border-[#e9e1d8] bg-white"
+                    disabled={!isPremium && totalServices >= planLimit}
+                  >
+                    <PlusCircle className="size-4" />
+                    Add Service
+                  </Button>
+
+                  {!isPremium && (
+                    <Button
+                      render={<Link href="/vendor/subscription" />}
+                      className="gap-2"
+                    >
+                      <Crown className="size-4" />
+                      Upgrade to Premium
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* Recent Bookings */}
+            <section className="mt-8">
+              <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <h2 className="font-heading text-xl font-bold">
+                    Recent Bookings
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Manage incoming booking requests from couples.
+                  </p>
+                </div>
+
+                <Link
+                  href="/vendor/bookings"
+                  className="flex w-fit items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  View All Bookings
+                  <ChevronRight className="size-4" />
+                </Link>
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-[#e9e1d8] bg-white shadow-sm">
+                {isLoading ? (
+                  <div className="flex min-h-[200px] items-center justify-center">
+                    <Loader2 className="size-7 animate-spin text-primary" />
+                  </div>
+                ) : recentBookings.length === 0 ? (
+                  <div className="flex min-h-[230px] flex-col items-center justify-center px-5 text-center">
+                    <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10">
+                      <CalendarCheck className="size-7 text-primary" />
+                    </div>
+
+                    <h3 className="mt-4 font-heading text-lg font-semibold">
+                      No Booking Requests Yet
+                    </h3>
+
+                    <p className="mt-2 max-w-sm text-xs leading-5 text-muted-foreground">
+                      Once couples discover your wedding services and send
+                      booking requests, they will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[#eee8e0]">
+                    {recentBookings.map((booking) => (
+                      <div
+                        key={booking._id}
+                        className="flex flex-col gap-4 p-4 transition-colors hover:bg-[#faf9f6] sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <CalendarDays className="size-5" />
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="truncate text-sm font-semibold">
+                                {booking.serviceName || "Wedding Service"}
+                              </h3>
+
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                                  booking.status === "accepted"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : booking.status === "rejected"
+                                      ? "bg-red-100 text-red-700"
+                                      : booking.status === "cancelled"
+                                        ? "bg-gray-100 text-gray-600"
+                                        : "bg-amber-100 text-amber-700"
+                                }`}
+                              >
+                                {booking.status}
+                              </span>
+                            </div>
+
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Client: {booking.customerName || "Couple"}
+                            </p>
+
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {booking.eventDate
+                                ? `Event: ${new Date(
+                                    booking.eventDate,
+                                  ).toLocaleDateString()}`
+                                : "Date to be confirmed"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 sm:justify-end">
+                          {typeof booking.price === "number" && (
+                            <p className="text-sm font-semibold">
+                              ৳{booking.price.toLocaleString("en-BD")}
+                            </p>
+                          )}
+
+                          {booking.status === "pending" && (
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={updatingId === booking._id}
+                                onClick={() =>
+                                  handleBookingStatus(booking._id, "rejected")
+                                }
+                                className="gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              >
+                                <XCircle className="size-3.5" />
+                                Decline
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                disabled={updatingId === booking._id}
+                                onClick={() =>
+                                  handleBookingStatus(booking._id, "accepted")
+                                }
+                                className="gap-1"
+                              >
+                                {updatingId === booking._id ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="size-3.5" />
+                                )}
+                                Accept
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Footer */}
+            <footer className="mt-8 border-t border-[#e9e1d8] py-5">
+              <div className="flex flex-col justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
+                <p>
+                  © <CopyrightYear /> {siteConfig.name}. All rights
+                  reserved.
+                </p>
+                <p>Made for your perfect wedding day.</p>
+              </div>
+            </footer>
+          </main>
+        </div>
       </div>
     </ProtectedRoute>
   );
