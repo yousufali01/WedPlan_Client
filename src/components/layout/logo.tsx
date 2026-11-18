@@ -61,10 +61,10 @@ export function Monogram({ className }: { className?: string }) {
 export function Logo({ className }: { className?: string }) {
   return (
     <Link
-      href={siteConfig.routes.home}
+      href="/"
       aria-label={`${siteConfig.name} — home`}
       className={cn(
-        "inline-flex shrink-0 items-center gap-2.5 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        "inline-flex shrink-0 cursor-pointer items-center gap-2.5 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
         className
       )}
     >

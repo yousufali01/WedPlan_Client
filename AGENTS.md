@@ -205,3 +205,10 @@ Fixed all critical auth state bugs, Google redirect loops, undefined dashboard p
 - Deleting `.next` (needed to clear stale route types for the removed `/vendor/dashboard/subscription`) also wiped Next's generated `LayoutProps` global type → `tsc` fails until `npx next typegen` is re-run. If `Cannot find name 'LayoutProps'` appears after clearing `.next`, run `npx next typegen` first.
 - `src/app/page.tsx` home footer had a raw `new Date().getFullYear()` (blocked value under `cacheComponents`) that crashed `npm run build`; replaced with the documented `<CopyrightYear />` component.
 - Verified: `tsc --noEmit` 0 errors, `eslint src` 0 errors (only pre-existing `<img>` warnings), `npm run build` ✓ all routes static, `next start` smoke test: all 6 `/vendor/*` routes → 200 with the ProtectedRoute shell in SSR HTML.
+
+## Task: Home hero — real photo background + lighter green overlay
+
+- `src/app/page.tsx` hero: replaced the hardcoded Unsplash CSS background div with `next/image` `<Image fill priority>` pointing at **`/images/hero-wedding.jpg`** (folder `public/images/` created). `onError` chains a graceful fallback: `.jpg` → `.png` → the original Unsplash URL, so the hero looks good even before the file is dropped in. The user's own photo must be saved at `public/images/hero-wedding.jpg` (or `.png`).
+- Green cinematic overlay reduced per request so the photo shines through: `bg-[#102F23]/75` + `/95 via /80 to /25` + `/50…/20` → now `/40` + `from-[#102F23]/85 via-[#183D2D]/45 to-[#183D2D]/10` + `/45 via-transparent to /15` (left side stays dark enough for the white heading).
+- `next.config.ts`: added `images.remotePatterns` for `https://images.unsplash.com` (needed by the fallback URL).
+- Verified: `tsc --noEmit` 0 errors, `npm run build` ✓, `next start` SSR contains the hero `<img data-nimg="fill">` + reduced-opacity overlay classes.

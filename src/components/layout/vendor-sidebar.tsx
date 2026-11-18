@@ -8,6 +8,7 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   Crown,
+  Globe,
   LayoutDashboard,
   PlusCircle,
   Settings,
@@ -23,6 +24,7 @@ const vendorNavigation = [
   { label: "Booking Requests", href: "/vendor/bookings", icon: CalendarDays },
   { label: "Subscription", href: "/vendor/subscription", icon: Crown },
   { label: "Profile Settings", href: "/vendor/profile", icon: Settings },
+  { label: "View Website", href: "/", icon: Globe, exact: true },
 ];
 
 function isActive(pathname: string, href: string, exact?: boolean) {

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
@@ -39,7 +40,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col font-sans">
         <AuthProvider>
-          <Navbar />
+          <Suspense fallback={<header className="h-16 w-full border-b border-border bg-background" />}>
+            <Navbar />
+          </Suspense>
           <main className="flex-1">{children}</main>
           <Footer />
           <Toaster position="top-right" />

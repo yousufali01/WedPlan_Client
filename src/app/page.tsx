@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 
 import { siteConfig } from "@/config/site";
-import { CopyrightYear } from "@/components/layout/copyright-year";
 
 type Service = {
   _id?: string;
@@ -136,18 +135,83 @@ function getServicePrice(service: Service) {
     : `From ৳${amount.toLocaleString("en-BD")}`;
 }
 
+const FALLBACK_SERVICES: Service[] = [
+  {
+    _id: "photography-heritage",
+    id: "photography-heritage",
+    title: "Heritage Wedding Cinematic Photography",
+    category: "Photography & Videography",
+    description: "Capturing authentic emotions, candid laughter and timeless royal wedding portraits with 4K cinematography.",
+    price: 45000,
+    location: "Gulshan, Dhaka",
+    image: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85",
+  },
+  {
+    _id: "venue-grand-palace",
+    id: "venue-grand-palace",
+    title: "The Grand Regal Palace & Convention Hall",
+    category: "Wedding Venues",
+    description: "Luxurious ballroom accommodating up to 1,200 guests with customized lighting and premium hospitality suites.",
+    price: 180000,
+    location: "Dhanmondi, Dhaka",
+    image: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1200&q=85",
+  },
+  {
+    _id: "decor-floral-dream",
+    id: "decor-floral-dream",
+    title: "Enchanted Garden Wedding Stage & Floral Styling",
+    category: "Decoration",
+    description: "Bespoke stage styling, fresh exotic floral arches, ambient fairy lights and dreamy walkway installations.",
+    price: 65000,
+    location: "Banani, Dhaka",
+    image: "https://images.unsplash.com/photo-1507504031003-b417219a0fde?auto=format&fit=crop&w=1200&q=85",
+  },
+  {
+    _id: "catering-shahi-dawat",
+    id: "catering-shahi-dawat",
+    title: "Shahi Dawat Royal Gourmet Catering",
+    category: "Catering",
+    description: "Authentic Kacchi biryani, slow-cooked roast, traditional kebabs and gourmet live dessert stations.",
+    price: 850,
+    location: "Uttara, Dhaka",
+    image: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1200&q=85",
+  },
+  {
+    _id: "bridal-glamour-makeover",
+    id: "bridal-glamour-makeover",
+    title: "Signature Glamour Bridal Makeup & Hair Artistry",
+    category: "Bridal Makeup",
+    description: "HD airbrush makeup, traditional bridal draping and jewelry setting for an effortless, radiant bridal glow.",
+    price: 25000,
+    location: "Bashundhara, Dhaka",
+    image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=85",
+  },
+  {
+    _id: "planning-perfect-moments",
+    id: "planning-perfect-moments",
+    title: "Full-Service Luxury Wedding Planning & Coordination",
+    category: "Wedding Planning",
+    description: "End-to-end wedding management, vendor coordination, RSVP tracking and stress-free wedding day execution.",
+    price: 55000,
+    location: "Mohakhali, Dhaka",
+    image: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=85",
+  },
+];
+
 export default function Home() {
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<Service[]>(FALLBACK_SERVICES);
   const [loadingServices, setLoadingServices] = useState(true);
 
   useEffect(() => {
     async function loadServices() {
       try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_SERVICES_API_URL ||
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/services`;
+        const baseUrl =
+          process.env.NEXT_PUBLIC_API_BASE_URL ||
+          process.env.NEXT_PUBLIC_API_URL ||
+          "http://localhost:5000";
+        const apiUrl = `${baseUrl.replace(/\/+$/, "")}/api/v1/services`;
 
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, { cache: "no-store" });
 
         if (!response.ok) {
           throw new Error("Failed to fetch wedding services");
@@ -163,10 +227,14 @@ export default function Home() {
             result.results ||
             [];
 
-        setServices(Array.isArray(serviceList) ? serviceList.slice(0, 6) : []);
+        if (Array.isArray(serviceList) && serviceList.length > 0) {
+          setServices(serviceList.slice(0, 6));
+        } else {
+          setServices(FALLBACK_SERVICES);
+        }
       } catch (error) {
         console.error("Homepage services error:", error);
-        setServices([]);
+        setServices(FALLBACK_SERVICES);
       } finally {
         setLoadingServices(false);
       }
@@ -186,8 +254,7 @@ export default function Home() {
         <div
           className="absolute inset-0 scale-105 bg-cover bg-center"
           style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=2200&q=90')",
+            backgroundImage: "url('/images/Banner.jpg')",
           }}
         />
 

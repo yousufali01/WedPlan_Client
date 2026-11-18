@@ -24,7 +24,7 @@ export function VendorShell({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen bg-[#faf9f6] text-foreground">
         {/* Mobile header */}
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background px-4 lg:hidden">
-          <Link href="/vendor/dashboard" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2" title="Go to WedPlan Home">
             <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Store className="size-5" />
             </div>
