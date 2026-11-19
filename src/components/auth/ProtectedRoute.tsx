@@ -14,6 +14,7 @@ interface Props {
 export default function ProtectedRoute({ children, allowedRoles }: Props) {
   const router = useRouter();
   const { role, isPending, isAuthenticated } = useAuth();
+  const allowedRolesKey = allowedRoles ? allowedRoles.join(",") : "";
 
   useEffect(() => {
     if (isPending) return;
@@ -31,16 +32,19 @@ export default function ProtectedRoute({ children, allowedRoles }: Props) {
       return;
     }
 
-    if (allowedRoles && (!role || !allowedRoles.includes(role))) {
-      const fallback =
-        role === "admin"
-          ? siteConfig.dashboards.admin
-          : role === "vendor"
-            ? siteConfig.dashboards.vendor
-            : siteConfig.dashboards.customer;
-      router.replace(fallback);
+    if (allowedRolesKey) {
+      const roles = allowedRolesKey.split(",") as UserRole[];
+      if (!role || !roles.includes(role)) {
+        const fallback =
+          role === "admin"
+            ? siteConfig.dashboards.admin
+            : role === "vendor"
+              ? siteConfig.dashboards.vendor
+              : siteConfig.dashboards.customer;
+        router.replace(fallback);
+      }
     }
-  }, [isPending, isAuthenticated, role, allowedRoles, router]);
+  }, [isPending, isAuthenticated, role, allowedRolesKey, router]);
 
   if (isPending || !isAuthenticated) {
     return (

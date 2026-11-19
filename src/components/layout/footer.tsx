@@ -58,7 +58,7 @@ const footerLinks = [
 export function Footer() {
   return (
     <footer className="border-t border-border bg-muted/30">
-      <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
+      <div className="mx-auto w-full max-w-7xl px-5 py-12 sm:px-8 lg:px-12">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1.2fr]">
           {/* Logo and short description + social media links */}
           <div className="flex flex-col items-start gap-4">
@@ -130,7 +130,10 @@ export function Footer() {
         </div>
 
         {/* Copyright information */}
-        <div className="mt-10 border-t border-border pt-6 text-center text-xs text-muted-foreground">
+        <div
+          className="mt-10 border-t border-border pt-6 text-center text-xs text-muted-foreground"
+          suppressHydrationWarning
+        >
           © <CopyrightYear /> {siteConfig.name}. All rights reserved.
         </div>
       </div>

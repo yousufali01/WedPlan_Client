@@ -250,7 +250,10 @@ function ServiceDetailsContent() {
   const [service, setService] = React.useState<ServiceDetail | null>(null);
   const [activeImage, setActiveImage] = React.useState<string>("");
   const [isLoading, setIsLoading] = React.useState(true);
-  const minDate = React.useMemo(() => getTomorrowISO(), []);
+  const [minDate, setMinDate] = React.useState<string>('');
+  React.useEffect(() => {
+    setMinDate(getTomorrowISO());
+  }, []);
 
   // Authentication check: redirect to sign-in if not logged in
   React.useEffect(() => {

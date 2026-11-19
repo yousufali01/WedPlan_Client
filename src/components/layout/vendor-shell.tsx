@@ -67,7 +67,7 @@ export function VendorShell({ children }: { children: React.ReactNode }) {
 
             <footer className="mt-10 border-t border-[#e9e1d8] py-5">
               <div className="flex flex-col justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
-                <p>
+                <p suppressHydrationWarning>
                   © <CopyrightYear /> {siteConfig.name}. All rights reserved.
                 </p>
                 <p>Made for your perfect wedding day.</p>

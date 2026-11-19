@@ -43,12 +43,20 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  render,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    render?: React.ReactElement | ((props: Record<string, unknown>) => React.ReactNode);
+  }) {
+  const isCustomElement = Boolean(render);
+
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      nativeButton={!isCustomElement}
+      render={render}
       {...props}
     />
   )

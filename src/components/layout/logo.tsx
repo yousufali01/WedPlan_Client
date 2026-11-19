@@ -1,19 +1,20 @@
-import Link from "next/link";
+"use client";
 
+import * as React from "react";
+import { useRouter } from "next/navigation";
 import { siteConfig } from "@/config/site";
 import { cn } from "cn";
 
 /**
- * Vector recreation of the WedPlan "WP" monogram: a deep-green serif W,
- * a gold serif P slightly offset to the right, a gold + green leaf sprout
+ * Vector recreation of the WedPlan "WP" monogram: a deep‑green serif W,
+ * a gold serif P slightly offset to the right, a gold + green leaf sprout
  * rising from the P stem and a green swash flowing underneath. Glyphs use
  * the Playfair Display font variable (loaded in the root layout) so the
- * mark always matches the wordmark; colors come from the theme tokens so
+ * mark always matches the word‑mark; colors come from the theme tokens so
  * the monogram adapts to light/dark mode automatically.
  */
 export function Monogram({ className }: { className?: string }) {
   const font = "var(--font-playfair), 'Playfair Display', serif";
-
   return (
     <svg
       viewBox="0 0 52 46"
@@ -58,11 +59,22 @@ export function Monogram({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Clickable logo that navigates to the home page.
+ * Implemented as a client component using `useRouter` to avoid any
+ * server‑client mismatch and to guarantee a client‑side navigation.
+ */
 export function Logo({ className }: { className?: string }) {
+  const router = useRouter();
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    router.push("/");
+  };
   return (
-    <Link
-      href="/"
+    <div
+      role="button"
       aria-label={`${siteConfig.name} — home`}
+      onClick={handleClick}
       className={cn(
         "inline-flex shrink-0 cursor-pointer items-center gap-2.5 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
         className
@@ -76,6 +88,6 @@ export function Logo({ className }: { className?: string }) {
         <span className="text-primary">Wed</span>
         <span className="text-gold">Plan</span>
       </span>
-    </Link>
+    </div>
   );
 }
