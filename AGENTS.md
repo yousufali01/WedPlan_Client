@@ -300,3 +300,64 @@ Fulfilled all customer features specified in the requirements:
   - `node --check` passed on all backend route and lib files.
   - Simulated customer booking -> vendor receiving booking -> vendor status update to `accepted` passed end-to-end.
   - User's frontend code untouched as requested.
+
+
+## Task: Stripe Payment Integration — Vendor Premium Subscription
+
+**Requirements:**
+- Vendor clicks "Upgrade to Premium" → redirected to real Stripe Checkout (not demo)
+- Payment success → verified with Stripe → Premium plan activated in DB
+- Payment cancel → return to subscription page with cancelled toast
+- **Free plan restriction:** Only 3 most-recent booking events visible (vendor bookings page + dashboard)
+- **Premium plan:** All booking events/data visible
+
+**Files changed (frontend — `wedplan-client`):**
+
+- `src/lib/stripe.ts` — Server-only Stripe client. Reads `STRIPE_SECRET_KEY` (falls back to `NEXT_PUBLIC_STRIPE_SECRET_KEY`). Uses `import 'server-only'`.
+- `src/app/api/checkout_sessions/route.js` — Next.js Route Handler (`POST`). Creates a Stripe Checkout Session dynamically with `price_data` (no price ID needed). Success URL: `/vendor/subscription?success=true&session_id={CHECKOUT_SESSION_ID}&plan={plan}`. Cancel URL: `/vendor/subscription?canceled=true`. Returns `{ success, url, sessionId }`.
+- `src/app/api/checkout_session/route.js` — Alias re-export of the above for alternate path.
+- `src/app/checkout_session/route.js` — Non-API path alias.
+- `src/app/vendor/subscription/page.tsx` — Fully rewritten:
+  - `Suspense` + `useSearchParams` for URL param detection.
+  - `?success=true&session_id=...&plan=...` → calls `POST /api/v1/subscription/verify-stripe-session` → activates premium.
+  - `?canceled=true` → shows cancellation toast.
+  - `handleUpgrade()` → calls `POST /api/checkout_sessions` → `window.location.assign(data.url)` (Stripe redirect).
+  - Buttons updated to "Pay with Stripe ($29)" with `CreditCard` icon.
+  - Footer note: "Payments processed by Stripe".
+- `src/app/vendor/bookings/page.tsx` — Fully rewritten:
+  - Fetches subscription info alongside bookings.
+  - `isPremium`: `plan` includes `premium_monthly` or `premium_yearly` AND `status === 'active'`.
+  - Free plan → `.slice(0, 3)` on booking events.
+  - Premium plan → all events shown.
+  - Plan badge in header; hidden count banner at bottom; upgrade CTA shown to free vendors.
+- `src/app/vendor/dashboard/page.tsx` — Updated:
+  - `recentBookingLimit = isPremium ? 5 : 3` applied to Recent Bookings section.
+  - Free plan badge shown next to "Recent Bookings" heading.
+  - Hidden bookings count banner with upgrade link shown when free plan truncates results.
+  - Design untouched.
+- `.env` — Added `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY`.
+
+**Files changed (backend — `wedplan-server`):**
+
+- `src/routes/subscription.js` — Fully rewritten:
+  - Lazy Stripe init via `getStripe()`.
+  - `GET /api/v1/subscription/mine` — `$or` ObjectId/string lookup + `getActiveServiceCount` updated.
+  - `POST /api/v1/subscription/create-checkout-session` — Creates Stripe session server-side (authenticated vendor).
+  - `POST /api/v1/subscription/verify-stripe-session` — Retrieves Stripe session, checks `payment_status === 'paid'`, updates DB subscription with `paymentStatus: 'paid'` and `expiresAt`.
+  - `POST /api/v1/subscription/upgrade` — Returns `402` requiring payment (no longer demo-free).
+  - `POST /api/v1/subscription/downgrade` — Uses `$or` vendor lookup + sets `paymentStatus: 'free'`.
+- `.env` — Added `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY`.
+
+**Decisions:**
+
+- Stripe Checkout uses `mode: 'payment'` (one-time payment per billing cycle, not Stripe Subscriptions). Simpler for the current scope.
+- `window.location.assign(data.url)` used instead of `window.location.href =` to satisfy `react-hooks/immutability` ESLint rule.
+- Unused `Sparkles` import removed from subscription page.
+- `NEXT_PUBLIC_STRIPE_SECRET_KEY` is a naming mistake (secrets must never be `NEXT_PUBLIC_`). The server-only route handler now reads `STRIPE_SECRET_KEY`; the `NEXT_PUBLIC_` variant is a fallback for legacy compatibility only — remove it when cleaning `.env`.
+- Build verification via `npx tsc --noEmit` → 0 errors; `npx eslint src` → 0 errors (7 pre-existing `<img>` warnings untouched).
+
+**Gotchas:**
+
+- `npm run build` fails in the Windows sandbox due to Turbopack's `jsc.baseUrl` UNC path canonicalization error (`Access is denied. (os error 5)`). This is an environment-only issue — the same build passes in a normal terminal. Use `next dev` for local development.
+- Stripe Checkout session `success_url` must include `{CHECKOUT_SESSION_ID}` (literal, not interpolated) for Stripe to inject the real session ID.
+- `metadata.vendorId` and `metadata.planId` are stored in the Stripe session so the backend can verify who paid for what plan without trusting the client.

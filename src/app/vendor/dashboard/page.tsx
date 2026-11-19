@@ -218,13 +218,15 @@ export default function VendorDashboardPage() {
     },
   ];
 
+  const recentBookingLimit = isPremium ? 5 : 3;
   const recentBookings = [...bookings]
     .sort(
       (a, b) =>
         new Date(b.createdAt || 0).getTime() -
         new Date(a.createdAt || 0).getTime(),
     )
-    .slice(0, 5);
+    .slice(0, recentBookingLimit);
+  const hiddenBookingsCount = Math.max(0, bookings.length - recentBookingLimit);
 
   return (
     <ProtectedRoute allowedRoles={["vendor", "admin"]}>
@@ -401,13 +403,38 @@ export default function VendorDashboardPage() {
               )}
             </div>
           </div>
+
+          {/* Free plan hidden count notice */}
+          {!isPremium && !isLoading && hiddenBookingsCount > 0 && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[#eadbb5] bg-[#fffdf7] px-4 py-3">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {hiddenBookingsCount} more booking{hiddenBookingsCount !== 1 ? "s" : ""}
+                </span>{" "}
+                hidden on the Free Plan. Upgrade to Premium to view all.
+              </p>
+              <Link
+                href="/vendor/subscription"
+                className="shrink-0 text-xs font-semibold text-primary hover:underline"
+              >
+                Upgrade →
+              </Link>
+            </div>
+          )}
         </section>
 
         {/* Recent Bookings */}
         <section className="mt-2">
           <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
-              <h2 className="font-heading text-xl font-bold">Recent Bookings</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-heading text-xl font-bold">Recent Bookings</h2>
+                {!isPremium && (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                    Free Plan (3 Max)
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 Manage incoming booking requests from couples.
               </p>
@@ -534,6 +561,24 @@ export default function VendorDashboardPage() {
               </div>
             )}
           </div>
+
+          {/* Free plan hidden count notice */}
+          {!isPremium && !isLoading && hiddenBookingsCount > 0 && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[#eadbb5] bg-[#fffdf7] px-4 py-3">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {hiddenBookingsCount} more booking{hiddenBookingsCount !== 1 ? "s" : ""}
+                </span>{" "}
+                hidden on the Free Plan. Upgrade to Premium to view all.
+              </p>
+              <Link
+                href="/vendor/subscription"
+                className="shrink-0 text-xs font-semibold text-primary hover:underline"
+              >
+                Upgrade →
+              </Link>
+            </div>
+          )}
         </section>
       </div>
     </ProtectedRoute>
