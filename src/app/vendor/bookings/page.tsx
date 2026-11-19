@@ -42,6 +42,8 @@ type SubscriptionInfo = {
   plan: string;
   status: string;
   planName?: string;
+  isPremium?: boolean;
+  expired?: boolean;
 };
 
 const statusFilters: { value: StatusFilter; label: string }[] = [
@@ -135,8 +137,10 @@ export default function VendorBookingsPage() {
   };
 
   const isPremium =
-    ["premium_monthly", "premium_yearly"].includes(subscription?.plan || "") &&
-    subscription?.status === "active";
+    subscription?.isPremium !== undefined
+      ? subscription.isPremium === true
+      : ["premium_monthly", "premium_yearly"].includes(subscription?.plan || "") &&
+        subscription?.status === "active";
 
   const allFilteredBookings = [...bookings]
     .filter((booking) => filter === "all" || booking.status === filter)
@@ -203,7 +207,9 @@ export default function VendorBookingsPage() {
                   Free Plan: Displaying {visibleBookings.length} of {allFilteredBookings.length} Events
                 </h4>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Free plan shows up to 3 booking events. Upgrade to Premium with Stripe to unlock all unlimited events and client requests.
+                  {subscription?.expired
+                    ? "Your Premium plan has expired, so only 3 recent events are visible. Renew to unlock all events."
+                    : "Free plan shows up to 3 booking events. Upgrade to Premium with Stripe to unlock all unlimited events and client requests."}
                 </p>
               </div>
             </div>

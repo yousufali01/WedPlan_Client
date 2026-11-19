@@ -361,3 +361,29 @@ Fulfilled all customer features specified in the requirements:
 - `npm run build` fails in the Windows sandbox due to Turbopack's `jsc.baseUrl` UNC path canonicalization error (`Access is denied. (os error 5)`). This is an environment-only issue — the same build passes in a normal terminal. Use `next dev` for local development.
 - Stripe Checkout session `success_url` must include `{CHECKOUT_SESSION_ID}` (literal, not interpolated) for Stripe to inject the real session ID.
 - `metadata.vendorId` and `metadata.planId` are stored in the Stripe session so the backend can verify who paid for what plan without trusting the client.
+
+## Task: Stripe payment flow — finish & harden (done)
+
+**User request:** keys, `app/checkout_session/route.js` and `lib/stripe.ts` are in place but buggy/incomplete. Successful payment must auto-activate Premium; unsuccessful must not. Free = only 3 most-recent booking events, Paid = all. Wire everything end-to-end incl. backend.
+
+**Bugs found:**
+1. `POST /api/checkout_sessions` is **unauthenticated** and trusts `vendorId`/`email` from the browser → anyone can create a checkout session. Stripe secret also read from a `NEXT_PUBLIC_*` fallback.
+2. `verify-stripe-session` activates Premium when Stripe is unconfigured (`isPaid = Boolean(sessionId)`) — arbitrary string upgrades the account. It also ignores `metadata.vendorId` and trusts the client's `plan`, and treats `status === "complete"` / `no_payment_required` as paid.
+3. `POST /upgrade` re-enters the router with `router.handle(...)` instead of calling the verifier directly.
+4. On `?success=true` the client never clears the query string on failure (re-verifies forever); `success=true` without `session_id` is silently ignored.
+5. `subscription/mine` never expires a premium plan whose `expiresAt` has passed.
+6. Free-plan `isPremium` checks on bookings/dashboard ignore `status`/expiry, so a stale plan could unlock all events.
+
+**Plan:**
+- [x] Server `src/utils/subscription.js` (new) — shared `isPremiumActive(sub)` (plan + status + expiry).
+- [x] Server `src/routes/subscription.js` — Stripe key only from `STRIPE_SECRET_KEY`; `activatePremium()` requires `payment_status === "paid"`, `metadata.vendorId === req.user.id`, plan from `metadata.planId`; no "no Stripe → free upgrade" path; `/mine` returns effective plan + `isPremium`/`expired`; `/upgrade` with sessionId calls `activatePremium()` directly (no `router.handle`).
+- [x] Client `src/app/api/checkout_sessions/route.js` — authenticated proxy to backend create-checkout-session (forwards cookie/JWT, validates plan); no client-supplied vendorId/email.
+- [x] Client `src/lib/stripe.ts` — lazy server-only `getStripe()`, `STRIPE_SECRET_KEY` only, explicit missing-key error.
+- [x] Client `src/app/vendor/subscription/page.tsx` — checkout via backend `apiRequest`; success verifies then clears URL params + refetches; failed/unpaid/incomplete verification errors and clears params; cancel shows info toast; no permanent loader.
+- [x] Client `src/app/vendor/bookings/page.tsx` + `dashboard/page.tsx` — use server `isPremium` (fallback for older servers); expired-plan note; 3-event free cap / all events premium retained.
+- [x] Client `.env` — removed leaked `NEXT_PUBLIC_STRIPE_SECRET_KEY` (rotating the key is still required).
+- [x] Verified: `tsc --noEmit` 0 errors, `eslint src` 0 errors (7 pre-existing `<img>` warnings), `npm run build` ✓ 29 routes (3 new dynamic API/checkout routes). Server `node --check` clean; boot on 5001: `/health` 200, verify/checkout/upgrade all 401 without session. Client proxy on 3100: bad plan → 400, valid plan no cookie → 401, `/vendor/subscription` → 200.
+
+**Gotchas:** Stripe secret was pasted in plaintext in this session AND existed as a `NEXT_PUBLIC_` var — rotate it in the Stripe dashboard and update BOTH `.env` files. Premium activation never trusts a client `session_id` alone: unpaid → 400, session for another vendor → 403, Stripe not configured → 503. Expired premium now reports `plan: "free"` + `expired: true` from `/subscription/mine`. The Next route handlers are kept only as an auth-forwarding proxy; the browser's primary path calls the Express backend directly with `credentials: "include"`. Free-plan capping stays client-side so status filters keep working over the full booking list.
+
+**Decisions:** Stripe Checkout stays `mode: "payment"` (one-time per cycle). Premium activation is **server-verified only**: no `session_id` → no upgrade; unpaid → no upgrade; session belongs to another vendor → no upgrade. Expired premium automatically behaves as Free. Rotate the Stripe secret key — it was pasted in plaintext in this session.

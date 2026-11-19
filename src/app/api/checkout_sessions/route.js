@@ -1,83 +1,60 @@
-import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import { stripe } from '../../../lib/stripe';
+import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 
-const PLAN_DETAILS = {
-  premium_monthly: {
-    name: 'WedPlan Vendor Premium (Monthly)',
-    description: 'Unlimited service listings, featured placement, and full booking management.',
-    priceInCents: 2900, // $29.00
-  },
-  premium_yearly: {
-    name: 'WedPlan Vendor Premium (Yearly)',
-    description: 'Full year access to unlimited service listings, featured placement, and priority support.',
-    priceInCents: 29000, // $290.00
-  },
-};
+/**
+ * Legacy-compatible checkout entry point.
+ *
+ * Stripe sessions are created by the Express backend, which is the only place
+ * that knows the authenticated vendor. This route simply forwards the caller's
+ * session cookie/JWT — it never trusts vendorId/email from the browser.
+ */
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5000";
 
 export async function POST(req) {
   try {
-    const headersList = await headers();
-    let body = {};
-    try {
-      body = await req.json();
-    } catch {
-      body = {};
+    const body = await req.json().catch(() => ({}));
+    const plan = body.planId || body.plan;
+
+    if (!["premium_monthly", "premium_yearly"].includes(plan)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid subscription plan." },
+        { status: 400 },
+      );
     }
 
-    const origin =
-      body.origin ||
-      headersList.get('origin') ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      'http://localhost:3000';
+    const requestHeaders = await headers();
+    const forwarded = { "Content-Type": "application/json" };
 
-    const planId =
-      body.planId === 'premium_yearly' ? 'premium_yearly' : 'premium_monthly';
-    const planConfig = PLAN_DETAILS[planId];
+    const cookie = requestHeaders.get("cookie");
+    const authorization = requestHeaders.get("authorization");
+    if (cookie) forwarded.cookie = cookie;
+    if (authorization) forwarded.authorization = authorization;
 
-    // Create Checkout Session with Stripe
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: planConfig.name,
-              description: planConfig.description,
-            },
-            unit_amount: planConfig.priceInCents,
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      customer_email: body.email || undefined,
-      metadata: {
-        vendorId: String(body.vendorId || ''),
-        planId: planId,
+    const response = await fetch(
+      `${BACKEND_URL.replace(/\/+$/, "")}/api/v1/subscription/create-checkout-session`,
+      {
+        method: "POST",
+        headers: forwarded,
+        body: JSON.stringify({ plan }),
+        cache: "no-store",
       },
-      success_url: `${origin}/vendor/subscription?success=true&session_id={CHECKOUT_SESSION_ID}&plan=${planId}`,
-      cancel_url: `${origin}/vendor/subscription?canceled=true`,
-    });
+    );
 
-    const acceptHeader = headersList.get('accept') || '';
-    const contentType = headersList.get('content-type') || '';
-
-    if (contentType.includes('application/json') || acceptHeader.includes('application/json')) {
-      return NextResponse.json({
-        success: true,
-        url: session.url,
-        sessionId: session.id,
-      });
-    }
-
-    return NextResponse.redirect(session.url, 303);
-  } catch (err) {
-    console.error('Stripe checkout error:', err);
+    const data = await response.json().catch(() => ({}));
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: err.message || 'Failed to create checkout session.' },
-      { status: err.statusCode || 500 }
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to start Stripe checkout.",
+      },
+      { status: 500 },
     );
   }
 }

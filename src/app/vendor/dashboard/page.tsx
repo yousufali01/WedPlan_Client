@@ -61,6 +61,9 @@ type Subscription = {
   activeServices: number;
   activeServiceLimit: number | null;
   remainingServices: number | null;
+  status?: string;
+  isPremium?: boolean;
+  expired?: boolean;
 };
 
 export default function VendorDashboardPage() {
@@ -93,7 +96,11 @@ export default function VendorDashboardPage() {
     "Free Plan";
 
   const normalizedPlan = planName.toLowerCase();
-  const isPremium = normalizedPlan.includes("premium");
+  const isPremium =
+    subscription?.isPremium !== undefined
+      ? subscription.isPremium === true
+      : normalizedPlan.includes("premium") &&
+        subscription?.status !== "cancelled";
 
   const planLimit = subscription?.activeServiceLimit ?? (isPremium ? Infinity : 3);
 

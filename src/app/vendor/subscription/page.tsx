@@ -15,7 +15,6 @@ import {
 import { toast } from "sonner";
 
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 
@@ -32,6 +31,8 @@ type Subscription = {
   remainingServices: number | null;
   expiresAt?: string;
   paymentStatus?: string;
+  isPremium?: boolean;
+  expired?: boolean;
 };
 
 const plans = [
@@ -84,7 +85,6 @@ const plans = [
 ];
 
 function SubscriptionContent() {
-  const { user } = useAuth();
   const searchParams = useSearchParams();
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -118,7 +118,12 @@ function SubscriptionContent() {
     return () => clearTimeout(timer);
   }, [fetchSubscription]);
 
-  // Handle Stripe Checkout redirects (success or cancelled)
+  const clearCheckoutParams = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }, []);
+
+  // Handle Stripe Checkout redirects (success, failure or cancelled).
   useEffect(() => {
     if (isSuccess && sessionId) {
       let active = true;
@@ -140,24 +145,26 @@ function SubscriptionContent() {
 
           if (active) {
             toast.success(
-              res.message || "Payment verified! Your account has been upgraded to Premium.",
+              res.message ||
+                "Payment verified! Your account has been upgraded to Premium.",
             );
-            setSubscription(res.subscription);
-
-            if (typeof window !== "undefined") {
-              window.history.replaceState({}, document.title, window.location.pathname);
-            }
+            if (res.subscription) setSubscription(res.subscription);
+            clearCheckoutParams();
+            await fetchSubscription();
           }
         } catch (err) {
           if (active) {
             toast.error(
-              err instanceof Error ? err.message : "Unable to verify payment with Stripe.",
+              err instanceof Error
+                ? err.message
+                : "Unable to verify payment with Stripe.",
             );
+            // Never leave the success params in the URL — that would retry
+            // verification forever. The account stays on Free.
+            clearCheckoutParams();
           }
         } finally {
-          if (active) {
-            setIsVerifying(false);
-          }
+          if (active) setIsVerifying(false);
         }
       };
 
@@ -166,13 +173,25 @@ function SubscriptionContent() {
       return () => {
         active = false;
       };
+    }
+
+    if (isSuccess && !sessionId) {
+      toast.error(
+        "Payment verification link is incomplete. No plan was changed.",
+      );
+      clearCheckoutParams();
     } else if (isCanceled) {
       toast.info("Payment was cancelled. You remain on the Free plan.");
-      if (typeof window !== "undefined") {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
+      clearCheckoutParams();
     }
-  }, [isSuccess, sessionId, planParam, isCanceled]);
+  }, [
+    isSuccess,
+    sessionId,
+    planParam,
+    isCanceled,
+    clearCheckoutParams,
+    fetchSubscription,
+  ]);
 
   const handleUpgrade = async (planId: PlanId) => {
     if (planId === "free" || upgrading) return;
@@ -180,24 +199,19 @@ function SubscriptionContent() {
     try {
       setUpgrading(planId);
 
-      const res = await fetch("/api/checkout_sessions", {
+      // The backend derives vendorId/email from the authenticated session —
+      // nothing about the buyer is trusted from the browser.
+      const data = await apiRequest<{
+        success: boolean;
+        url: string;
+        sessionId?: string;
+      }>("/api/v1/subscription/create-checkout-session", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          planId,
-          vendorId: user?.id,
-          email: user?.email,
-          origin: typeof window !== "undefined" ? window.location.origin : undefined,
-        }),
+        body: JSON.stringify({ plan: planId }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "Unable to initiate Stripe checkout.");
+      if (!data.url) {
+        throw new Error("Stripe did not return a checkout URL.");
       }
 
       toast.loading("Redirecting to secure Stripe Checkout...");
@@ -246,9 +260,13 @@ function SubscriptionContent() {
   }
 
   const currentPlan = subscription?.plan || "free";
+  // Backend normalises expired/inactive premium to Free; fall back to the
+  // local check only for an older server response.
   const isPremiumActive =
-    ["premium_monthly", "premium_yearly"].includes(currentPlan) &&
-    subscription?.status === "active";
+    subscription?.isPremium !== undefined
+      ? subscription.isPremium === true
+      : ["premium_monthly", "premium_yearly"].includes(currentPlan) &&
+        subscription?.status === "active";
 
   return (
     <div className="flex flex-col gap-6">
