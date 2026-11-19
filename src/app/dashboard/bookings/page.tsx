@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { siteConfig } from "@/config/site";
 import { apiRequest } from "@/lib/api";
+import { cancelDemoBooking, getDemoBookings } from "@/lib/demo-bookings";
 
 /* ─── Types ─── */
 type BookingStatus = "pending" | "accepted" | "rejected" | "cancelled";
@@ -36,6 +37,7 @@ type Booking = {
   status?: BookingStatus;
   createdAt?: string;
   updatedAt?: string;
+  demo?: boolean;
 };
 
 /* ─── Status UI config ─── */
@@ -242,15 +244,24 @@ export default function BookingsPage() {
     if (!user) return;
     setIsLoading(true);
     setError(null);
+    // Curated demo listings are stored locally; real ones come from the API.
+    const demo = getDemoBookings(user.id) as Booking[];
     try {
       const res = await apiRequest<{ bookings: Booking[] }>(
         "/api/v1/bookings/mine"
       );
-      setBookings(res.bookings ?? []);
+      setBookings(
+        [...demo, ...(res.bookings ?? [])].sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() -
+            new Date(a.createdAt ?? 0).getTime()
+        )
+      );
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to load bookings.";
       setError(msg);
+      setBookings(demo);
     } finally {
       setIsLoading(false);
     }
@@ -269,9 +280,16 @@ export default function BookingsPage() {
       if (!bookingId) return;
       setCancellingId(bookingId);
       try {
-        await apiRequest(`/api/v1/bookings/${bookingId}/cancel`, {
-          method: "PATCH",
-        });
+        if (bookingId.startsWith("demo-")) {
+          if (!cancelDemoBooking(bookingId)) {
+            toast.error("Only pending requests can be cancelled.");
+            return;
+          }
+        } else {
+          await apiRequest(`/api/v1/bookings/${bookingId}/cancel`, {
+            method: "PATCH",
+          });
+        }
         toast.success("Booking cancelled successfully.");
         setBookings((prev) =>
           prev.map((b) =>

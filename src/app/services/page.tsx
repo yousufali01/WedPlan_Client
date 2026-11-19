@@ -33,6 +33,7 @@ type Service = {
   images?: string[];
   photos?: string[];
   availability?: boolean;
+  featured?: boolean;
   vendorName?: string;
   vendorTitle?: string;
   vendorAvatar?: string;
@@ -513,12 +514,10 @@ function BrowseServicesContent() {
                 service.vendorName ||
                 service.vendor?.businessName ||
                 service.vendor?.name ||
-                "Atelier Lumiere Weddings";
-              const vendorTitle = service.vendorTitle || "Premium Vendor";
+                "WedPlan Partner";
+              const vendorTitle = service.vendorTitle || "Verified Wedding Vendor";
               const avatar =
-                service.vendorAvatar ||
-                service.vendor?.image ||
-                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80";
+                service.vendorAvatar || service.vendor?.image || "";
 
               return (
                 <div
@@ -535,13 +534,19 @@ function BrowseServicesContent() {
                     {/* Top badges */}
                     <div className="absolute left-3 top-3 right-3 flex items-center gap-2">
                       <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-[#183D2D] shadow-sm backdrop-blur-sm border border-[#ede7de]">
-                        {service.category || "Wedding Venues"}
+                        {service.category || "Wedding Service"}
                       </span>
 
-                      <span className="flex items-center gap-1 rounded-full border border-[#f5df9a] bg-[#fdf6e2]/95 px-3 py-1 text-xs font-semibold text-[#966b12] shadow-sm backdrop-blur-sm">
-                        <Sparkles className="size-3 text-gold" />
-                        Featured Partner
-                      </span>
+                      {service.featured ? (
+                        <span className="flex items-center gap-1 rounded-full border border-[#f5df9a] bg-[#fdf6e2]/95 px-3 py-1 text-xs font-semibold text-[#966b12] shadow-sm backdrop-blur-sm">
+                          <Sparkles className="size-3 text-gold" />
+                          Featured Partner
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-[#e6dfd5] bg-white/95 px-3 py-1 text-xs font-semibold text-[#555E53] shadow-sm backdrop-blur-sm">
+                          Verified Partner
+                        </span>
+                      )}
                     </div>
 
                     {/* Price tag on bottom right */}
@@ -561,23 +566,31 @@ function BrowseServicesContent() {
                     <div className="mt-1 flex items-center gap-1 text-xs text-[#78716c]">
                       <MapPin className="size-3.5 shrink-0 text-primary/70" />
                       <span className="truncate">
-                        {service.location || service.city || "Sonoma, CA"}
+                        {service.location ||
+                          service.city ||
+                          "Location on request"}
                       </span>
                     </div>
 
                     {/* Description */}
                     <p className="mt-3 text-xs leading-relaxed text-[#555E53] line-clamp-2 min-h-[36px]">
                       {service.description ||
-                        "Private 18-acre vineyard estate accommodating up to 220 guests with a glass conservatory reception hall..."}
+                        "A curated wedding service from a verified WedPlan partner. Open for details to see the full package and availability."}
                     </p>
 
                     {/* Vendor info footer */}
                     <div className="mt-4 flex items-center gap-2.5 border-t border-[#f0eae1] pt-3.5">
-                      <img
-                        src={avatar}
-                        alt={vendor}
-                        className="size-8 rounded-full bg-muted object-cover shrink-0"
-                      />
+                      {avatar ? (
+                        <img
+                          src={avatar}
+                          alt={vendor}
+                          className="size-8 rounded-full bg-muted object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                          {vendor.charAt(0)}
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-semibold text-[#183D2D] leading-tight">
                           {vendor}

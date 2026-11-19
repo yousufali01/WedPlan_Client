@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/api";
+import { addDemoBooking } from "@/lib/demo-bookings";
 import { siteConfig } from "@/config/site";
 
 type ServiceDetail = {
@@ -28,6 +29,8 @@ type ServiceDetail = {
   title?: string;
   category?: string;
   price?: number | string;
+  startingPrice?: number | string;
+  rating?: number;
   description?: string;
   location?: string;
   city?: string;
@@ -219,6 +222,24 @@ function isRealMongoId(id: string): boolean {
   return /^[a-f0-9]{24}$/i.test(id);
 }
 
+function formatServicePrice(service: ServiceDetail): string {
+  const raw = service.price ?? service.startingPrice;
+  if (raw === undefined || raw === null || raw === "") return "Contact for pricing";
+  if (typeof raw === "string" && (raw.includes("৳") || raw.includes("$"))) return raw;
+  const num = Number(raw);
+  return Number.isNaN(num) ? String(raw) : `৳${num.toLocaleString("en-BD")}`;
+}
+
+/** Backend rejects today's date (Date.now()), so the picker starts tomorrow. */
+function getTomorrowISO(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function ServiceDetailsContent() {
   const params = useParams();
   const router = useRouter();
@@ -229,6 +250,7 @@ function ServiceDetailsContent() {
   const [service, setService] = React.useState<ServiceDetail | null>(null);
   const [activeImage, setActiveImage] = React.useState<string>("");
   const [isLoading, setIsLoading] = React.useState(true);
+  const minDate = React.useMemo(() => getTomorrowISO(), []);
 
   // Authentication check: redirect to sign-in if not logged in
   React.useEffect(() => {
@@ -308,8 +330,13 @@ function ServiceDetailsContent() {
       return;
     }
 
-    if (!eventDate) {
-      toast.error("Please select an event date.");
+    if (!eventDate || new Date(eventDate).getTime() <= Date.now()) {
+      toast.error("Please select a valid future event date.");
+      return;
+    }
+
+    if (service?.availability === false) {
+      toast.error("This service is currently unavailable for booking.");
       return;
     }
 
@@ -323,19 +350,36 @@ function ServiceDetailsContent() {
             ? String(service._id)
             : null) ?? serviceId;
 
-      await apiRequest("/api/v1/bookings", {
-        method: "POST",
-        body: JSON.stringify({
+      if (isDemo) {
+        // Curated listings are not in MongoDB, so the API would 404.
+        addDemoBooking({
+          customerId: user.id,
           serviceId: resolvedServiceId,
+          serviceName: service?.name || service?.title || "Wedding Service",
+          serviceCategory: service?.category,
+          serviceImage: service?.image || service?.images?.[0] || null,
+          servicePrice: service?.price ?? service?.startingPrice,
           eventDate,
-          guestCount: guestCount ? parseInt(guestCount, 10) : undefined,
+          guestCount: guestCount ? parseInt(guestCount, 10) : null,
           notes,
-        }),
-      });
+        });
+      } else {
+        await apiRequest("/api/v1/bookings", {
+          method: "POST",
+          body: JSON.stringify({
+            serviceId: resolvedServiceId,
+            eventDate,
+            guestCount: guestCount ? parseInt(guestCount, 10) : undefined,
+            notes,
+          }),
+        });
+      }
 
       setBookingSuccess(true);
       toast.success("Booking request sent successfully!", {
-        description: "The vendor will review your request and get in touch.",
+        description: isDemo
+          ? "Saved to My Bookings so you can track or cancel it anytime."
+          : "The vendor will review your request and get in touch.",
       });
     } catch (err: unknown) {
       const message =
@@ -362,7 +406,7 @@ function ServiceDetailsContent() {
   if (!service) {
     return (
       <div className="mx-auto max-w-xl px-5 py-24 text-center">
-        <h2 className="font-serif text-2xl font-bold">Service Not Found</h2>
+        <h2 className="font-heading text-2xl font-bold">Service Not Found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           The wedding service you are looking for is unavailable or does not exist.
         </p>
@@ -378,10 +422,7 @@ function ServiceDetailsContent() {
   }
 
   const serviceName = service.name || service.title || "Wedding Service";
-  const priceDisplay =
-    typeof service.price === "number"
-      ? `৳${service.price.toLocaleString("en-BD")}`
-      : String(service.price || "Contact for pricing");
+  const priceDisplay = formatServicePrice(service);
 
   const imagesList = service.images && service.images.length > 0
     ? service.images
@@ -437,13 +478,22 @@ function ServiceDetailsContent() {
               <div className="absolute bottom-5 left-5 right-5 flex items-center justify-between text-white">
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin size={16} className="text-[#D5B66D]" />
-                  <span>{service.city || service.location || "Dhaka, Bangladesh"}</span>
+                  <span>
+                    {service.city || service.location || "Location on request"}
+                  </span>
                 </div>
 
-                <span className="flex items-center gap-1 rounded-full bg-emerald-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
-                  <CheckCircle2 size={13} />
-                  Available for Booking
-                </span>
+                {service.availability === false ? (
+                  <span className="flex items-center gap-1 rounded-full bg-amber-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                    <Clock size={13} />
+                    Currently Unavailable
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 rounded-full bg-emerald-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                    <CheckCircle2 size={13} />
+                    Available for Booking
+                  </span>
+                )}
               </div>
             </div>
 
@@ -471,16 +521,27 @@ function ServiceDetailsContent() {
             <div className="rounded-3xl border border-[#E8E1D3] bg-white p-6 sm:p-8 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E8E1D3] pb-6">
                 <div>
-                  <div className="mb-2 flex items-center gap-1.5 text-[#C3A45D]">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} size={14} fill="currentColor" />
-                    ))}
-                    <span className="ml-2 text-xs font-semibold text-muted-foreground">
-                      5.0 (Verified Wedding Reviews)
+                  {typeof service.rating === "number" ? (
+                    <div className="mb-2 flex items-center gap-1.5 text-[#C3A45D]">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={14}
+                          fill={s <= Math.round(service.rating ?? 0) ? "currentColor" : "none"}
+                        />
+                      ))}
+                      <span className="ml-2 text-xs font-semibold text-muted-foreground">
+                        {service.rating.toFixed(1)} (Verified Wedding Reviews)
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                      <ShieldCheck size={13} />
+                      WedPlan Verified Partner
                     </span>
-                  </div>
+                  )}
 
-                  <h1 className="font-serif text-2xl font-bold sm:text-3xl text-[#183D2D]">
+                  <h1 className="font-heading text-2xl font-bold sm:text-3xl text-[#183D2D]">
                     {serviceName}
                   </h1>
                 </div>
@@ -489,7 +550,7 @@ function ServiceDetailsContent() {
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">
                     Starting Package
                   </p>
-                  <p className="font-serif text-3xl font-bold text-primary">
+                  <p className="font-heading text-3xl font-bold text-primary">
                     {priceDisplay}
                   </p>
                 </div>
@@ -497,7 +558,7 @@ function ServiceDetailsContent() {
 
               {/* Service Description */}
               <div className="mt-6">
-                <h2 className="font-serif text-lg font-bold text-[#183D2D]">
+                <h2 className="font-heading text-lg font-bold text-[#183D2D]">
                   About This Service
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-[#555E53] whitespace-pre-line">
@@ -569,12 +630,19 @@ function ServiceDetailsContent() {
             {/* Vendor Information Box */}
             <div className="flex items-center justify-between rounded-3xl border border-[#E8E1D3] bg-white p-6 shadow-sm">
               <div className="flex items-center gap-4">
-                <div className="flex size-14 items-center justify-center rounded-2xl bg-[#183D2D] font-serif text-xl font-bold text-[#D5B66D]">
-                  {(service.vendor?.businessName || service.vendor?.name || "W")[0]}
+                <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#183D2D] font-heading text-xl font-bold text-[#D5B66D]">
+                  {service.vendor?.image ? (
+                    <div
+                      className="size-full bg-cover bg-center"
+                      style={{ backgroundImage: `url('${service.vendor.image}')` }}
+                    />
+                  ) : (
+                    (service.vendor?.businessName || service.vendor?.name || "W")[0]
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-serif text-base font-bold text-[#183D2D]">
+                    <h3 className="font-heading text-base font-bold text-[#183D2D]">
                       {service.vendor?.businessName || service.vendor?.name || "Official WedPlan Partner"}
                     </h3>
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
@@ -582,15 +650,18 @@ function ServiceDetailsContent() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {service.vendor?.email || "verified-vendor@wedplan.com"}
+                    {service.vendor?.email || "Contact via booking request"}
                   </p>
                 </div>
               </div>
 
-              <div className="hidden sm:block">
-                <span className="text-xs font-semibold text-primary underline">
-                  Member since 2026
+              <div className="hidden text-right sm:block">
+                <span className="text-xs font-semibold text-primary">
+                  {service.category || "Wedding Service"}
                 </span>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {service.city || service.location || "Location on request"}
+                </p>
               </div>
             </div>
           </div>
@@ -602,7 +673,7 @@ function ServiceDetailsContent() {
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#B4934C]">
                   Book This Vendor
                 </span>
-                <h3 className="mt-1 font-serif text-2xl font-bold text-[#183D2D]">
+                <h3 className="mt-1 font-heading text-2xl font-bold text-[#183D2D]">
                   Request a Booking
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -610,41 +681,18 @@ function ServiceDetailsContent() {
                 </p>
               </div>
 
-              {/* ── Demo service notice — no booking for fallback listings ── */}
-              {isDemo ? (
-                <div className="mt-6 flex flex-col items-center gap-4 text-center py-4">
-                  <div className="flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
-                    <Sparkles className="size-6" />
-                  </div>
-                  <div>
-                    <h4 className="font-serif text-base font-bold text-[#183D2D]">
-                      Sample / Demo Listing
-                    </h4>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                      This is a curated showcase listing. Booking is only
-                      available for services listed by verified vendors on the
-                      platform. Browse real vendor services to send a booking
-                      request.
-                    </p>
-                  </div>
-                  <Button
-                    render={<Link href="/services" />}
-                    className="mt-2 w-full"
-                  >
-                    Browse Real Services
-                  </Button>
-                </div>
-              ) : bookingSuccess ? (
+              {bookingSuccess ? (
                 <div className="mt-6 flex flex-col items-center justify-center py-6 text-center">
                   <div className="flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                     <Check className="size-7" />
                   </div>
-                  <h4 className="mt-4 font-serif text-lg font-bold">
+                  <h4 className="mt-4 font-heading text-lg font-bold">
                     Booking Request Sent!
                   </h4>
                   <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    Your request has been submitted to the vendor. You can monitor
-                    status updates in your dashboard.
+                    {isDemo
+                      ? "Your sample-listing request is saved. Track or cancel it from My Bookings."
+                      : "Your request has been submitted to the vendor. You can monitor status updates in your dashboard."}
                   </p>
                   <Button
                     render={<Link href={siteConfig.routes.bookings} />}
@@ -653,8 +701,35 @@ function ServiceDetailsContent() {
                     View My Bookings
                   </Button>
                 </div>
+              ) : service.availability === false ? (
+                <div className="mt-6 flex flex-col items-center gap-4 text-center py-4">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                    <Clock className="size-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-heading text-base font-bold text-[#183D2D]">
+                      Currently Unavailable
+                    </h4>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      This vendor is not accepting new bookings right now. Please
+                      browse other services for your date.
+                    </p>
+                  </div>
+                  <Button
+                    render={<Link href="/services" />}
+                    className="mt-2 w-full"
+                  >
+                    Browse Other Services
+                  </Button>
+                </div>
               ) : (
                 <form onSubmit={handleBooking} className="mt-5 space-y-4">
+                  {isDemo && (
+                    <div className="rounded-xl border border-[#E8E1D3] bg-[#FAF8F2] px-3 py-2 text-[11px] leading-5 text-[#555E53]">
+                      Curated sample listing — pick a date below and your request
+                      will be saved locally in My Bookings.
+                    </div>
+                  )}
                   {/* Event Date */}
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-[#183D2D]">
@@ -663,7 +738,7 @@ function ServiceDetailsContent() {
                     <div className="relative">
                       <input
                         type="date"
-                        min={new Date().toISOString().split("T")[0]}
+                        min={minDate}
                         value={eventDate}
                         onChange={(e) => setEventDate(e.target.value)}
                         required

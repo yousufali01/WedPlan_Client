@@ -228,3 +228,20 @@ Fulfilled all customer features specified in the requirements:
 - `src/middleware/auth.js`: Normalized `req.user.id` across both JWT Bearer and session cookie paths; updated `requireCustomer` to accept `customer` and `admin` roles.
 - `src/routes/bookings.js`: Added vendor ID resolution (`$or` across string ID and ObjectId), service availability check, booking data enrichment (`serviceImage`, `serviceCategory`), and `?status=` filtering on `GET /api/v1/bookings/mine`.
 - `src/routes/services.js`: Added query filters for `search`/`q`, `category`, `location`, `minPrice`/`maxPrice`, and `sort` (`price-low`, `price-high`). Sanitized `approvedVendorIds` to unique string format.
+
+## Task: View Details page — booking flow + card details fix (done)
+
+**User report:** "View Details" page-er age date select + booking kora jaito, ekhon thik vabe hosse na. Design same rakhe just card details/flow thik koro. Chai: real data, bug fix, visual polish, missing info — sob ek sathe.
+
+**Root causes:** (1) `isDemo` gate showed "Sample / Demo Listing" instead of the date picker for every curated/default listing, so booking was impossible there; (2) date `min` allowed *today*, but backend `isFutureDate()` requires strictly future → "eventDate must be a valid future date"; (3) demo IDs are not in the DB → POST always 404 "Service not found"; (4) several fake hardcoded details (5.0 rating, `verified-vendor@wedplan.com`, "Member since 2026", fallback "Sonoma, CA" / "Atelier Lumiere Weddings") showed on real listings.
+
+**Plan:**
+- [x] `src/lib/demo-bookings.ts` — localStorage demo booking store (`wedplan.bookings`), mirrors `demo-auth.ts` pattern; real services still POST to the API.
+- [x] `src/app/services/[id]/page.tsx` — always render date picker + booking form; min date = tomorrow; validate future date; demo → local store, real → `POST /api/v1/bookings`; real price/vendor/availability/location; conditional rating; `font-serif` → `font-heading`.
+- [x] `src/app/dashboard/bookings/page.tsx` — merge demo bookings into "My Bookings" and support cancelling them.
+- [x] `src/app/services/page.tsx` — remove false hardcoded card details (Featured Partner / dummy location+vendor fallbacks), keep exact layout.
+- [x] Verified: `tsc --noEmit` 0 errors, `eslint src` 0 errors (5 pre-existing `<img>` warnings), `npm run build` ✓ 26 routes, `next start -p 3100` smoke test `/services`, `/services/venue-rosewood`, `/dashboard/bookings` → all 200.
+
+**Gotchas:** `react-hooks/use-memo` requires an inline arrow — `useMemo(() => getTomorrowISO(), [])`, not `useMemo(getTomorrowISO, [])`. Backend `isFutureDate()` is strictly `> Date.now()`, hence `min` = tomorrow (selecting today used to fail with "must be a valid future date"). Demo bookings use `demo-<uuid>` IDs so the bookings page can route their cancel action locally instead of calling the API.
+
+**Decisions:** Demo (non-ObjectId) listings are *bookable locally* instead of being dead ends — same frontend-only decision already used for demo accounts; swap `addDemoBooking` for the API call when those listings are seeded server-side. Keep all existing colors/spacing/card structure untouched.
