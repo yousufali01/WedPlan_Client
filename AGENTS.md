@@ -212,3 +212,19 @@ Fixed all critical auth state bugs, Google redirect loops, undefined dashboard p
 - Green cinematic overlay reduced per request so the photo shines through: `bg-[#102F23]/75` + `/95 via /80 to /25` + `/50…/20` → now `/40` + `from-[#102F23]/85 via-[#183D2D]/45 to-[#183D2D]/10` + `/45 via-transparent to /15` (left side stays dark enough for the white heading).
 - `next.config.ts`: added `images.remotePatterns` for `https://images.unsplash.com` (needed by the fallback URL).
 - Verified: `tsc --noEmit` 0 errors, `npm run build` ✓, `next start` SSR contains the hero `<img data-nimg="fill">` + reduced-opacity overlay classes.
+
+## Task: Customer Portal & Service Booking Operations (100% Complete)
+
+Fulfilled all customer features specified in the requirements:
+1. **Browse Available Wedding Services**: `/services` with responsive grid, rich cards, real API fetching with graceful fallback.
+2. **Search and Filter Services**: Enhanced both server `GET /api/v1/services` and client search/filter (keyword regex, category, location, min/max price bounds, and price sorting).
+3. **View Service Details**: `/services/[id]` with high-res photo gallery, vendor verification badge, service metadata, and demo vs live listing handling.
+4. **Submit Booking Requests**: Service booking form on `/services/[id]` with event date validation, guest count, and custom notes posting to `POST /api/v1/bookings`. Fixed backend user ID normalization (JWT & Better Auth cookie), vendor ID matching, and service availability checks.
+5. **Track Booking Request Status**: Created full-featured `/dashboard/bookings` management page with status tabs (All, Pending, Accepted, Rejected, Cancelled), search bar, and color-coded status badges.
+6. **Cancel Pending Booking Requests**: Built interactive "Cancel Request" action for pending bookings calling `PATCH /api/v1/bookings/:id/cancel` with real-time UI state update.
+7. **Access Customer Dashboard**: Replaced overview placeholders on `/dashboard` with live booking count metrics, quick navigation cards, recent bookings list, plus interactive Wedding Budget Tracker (`/dashboard/budget`) and Month-by-Month Wedding Checklist (`/dashboard/checklist`).
+
+**Backend enhancements (`wedplan-server`):**
+- `src/middleware/auth.js`: Normalized `req.user.id` across both JWT Bearer and session cookie paths; updated `requireCustomer` to accept `customer` and `admin` roles.
+- `src/routes/bookings.js`: Added vendor ID resolution (`$or` across string ID and ObjectId), service availability check, booking data enrichment (`serviceImage`, `serviceCategory`), and `?status=` filtering on `GET /api/v1/bookings/mine`.
+- `src/routes/services.js`: Added query filters for `search`/`q`, `category`, `location`, `minPrice`/`maxPrice`, and `sort` (`price-low`, `price-high`). Sanitized `approvedVendorIds` to unique string format.

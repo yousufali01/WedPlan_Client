@@ -214,11 +214,17 @@ const DEFAULT_SERVICES_MAP: Record<string, ServiceDetail> = {
   },
 };
 
+/** Returns true only for real 24-char hex MongoDB ObjectIds. */
+function isRealMongoId(id: string): boolean {
+  return /^[a-f0-9]{24}$/i.test(id);
+}
+
 function ServiceDetailsContent() {
   const params = useParams();
   const router = useRouter();
   const { user, isPending, isAuthenticated } = useAuth();
   const serviceId = (params?.id as string) || "";
+  const isDemo = !isRealMongoId(serviceId);
 
   const [service, setService] = React.useState<ServiceDetail | null>(null);
   const [activeImage, setActiveImage] = React.useState<string>("");
@@ -309,10 +315,18 @@ function ServiceDetailsContent() {
 
     setIsSubmitting(true);
     try {
+      // Normalise _id — the API returns it as a string hex, but guard anyway
+      const resolvedServiceId =
+        (typeof service?._id === "string"
+          ? service._id
+          : service?._id
+            ? String(service._id)
+            : null) ?? serviceId;
+
       await apiRequest("/api/v1/bookings", {
         method: "POST",
         body: JSON.stringify({
-          serviceId: service?._id || serviceId,
+          serviceId: resolvedServiceId,
           eventDate,
           guestCount: guestCount ? parseInt(guestCount, 10) : undefined,
           notes,
@@ -596,7 +610,31 @@ function ServiceDetailsContent() {
                 </p>
               </div>
 
-              {bookingSuccess ? (
+              {/* ── Demo service notice — no booking for fallback listings ── */}
+              {isDemo ? (
+                <div className="mt-6 flex flex-col items-center gap-4 text-center py-4">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                    <Sparkles className="size-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-serif text-base font-bold text-[#183D2D]">
+                      Sample / Demo Listing
+                    </h4>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      This is a curated showcase listing. Booking is only
+                      available for services listed by verified vendors on the
+                      platform. Browse real vendor services to send a booking
+                      request.
+                    </p>
+                  </div>
+                  <Button
+                    render={<Link href="/services" />}
+                    className="mt-2 w-full"
+                  >
+                    Browse Real Services
+                  </Button>
+                </div>
+              ) : bookingSuccess ? (
                 <div className="mt-6 flex flex-col items-center justify-center py-6 text-center">
                   <div className="flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                     <Check className="size-7" />
