@@ -387,3 +387,39 @@ Fulfilled all customer features specified in the requirements:
 **Gotchas:** Stripe secret was pasted in plaintext in this session AND existed as a `NEXT_PUBLIC_` var — rotate it in the Stripe dashboard and update BOTH `.env` files. Premium activation never trusts a client `session_id` alone: unpaid → 400, session for another vendor → 403, Stripe not configured → 503. Expired premium now reports `plan: "free"` + `expired: true` from `/subscription/mine`. The Next route handlers are kept only as an auth-forwarding proxy; the browser's primary path calls the Express backend directly with `credentials: "include"`. Free-plan capping stays client-side so status filters keep working over the full booking list.
 
 **Decisions:** Stripe Checkout stays `mode: "payment"` (one-time per cycle). Premium activation is **server-verified only**: no `session_id` → no upgrade; unpaid → no upgrade; session belongs to another vendor → no upgrade. Expired premium automatically behaves as Free. Rotate the Stripe secret key — it was pasted in plaintext in this session.
+
+## Task: App route groups — folder structure only (done)
+
+Pages were grouped by the feature they belong to. Parentheses folders do not change URLs. Root `layout.tsx`, `globals.css`, and the API handlers stayed at `src/app/` because checkout routes import each other with relative paths.
+
+```
+src/app/
+  layout.tsx
+  globals.css
+  (public)/          home, browse services, service details, add-service form (/services/new)
+  (auth)/            /signin, /signup, /auth/callback
+  (customer)/        /dashboard/*, /profile, /customer/dashboard
+  (vendor)/          /vendor/*, /payment
+  (admin)/           /admin/*
+  api/               checkout session proxies
+  checkout_session/  alias of the checkout proxy
+```
+
+**Decisions:** No new `[...all]` auth handler. Better Auth runs on the Express server; the client already calls it through `auth-client.ts`. The empty `src/app/api/auth/[...all]` folder had no route file, so it was removed. No group layouts were added — navbar, footer, and the existing dashboard/vendor/admin shells are unchanged.
+
+## Task: Server folders match the client route groups (done)
+
+`wedplan-server/src` now uses the same feature folders. Express mount paths are unchanged (`/api/auth/*`, `/api/v1/profile`, `/api/v1/services`, `/services`, `/api/v1/bookings`, `/api/v1/planner`, `/api/v1/subscription`, `/api/v1/admin`).
+
+```
+src/
+  (auth)/       auth.js (Better Auth), middleware.js
+  (public)/     services.js
+  (customer)/   profile.js, bookings.js, planner.js
+  (vendor)/     subscription.js
+  (admin)/      admin.js
+  config/       db.js, indexes.js
+  utils/        helpers.js, subscription.js
+```
+
+Entry stays `index.js`. Unused `server.js` (ESM stub) and root `routes/index.js` (old HireLoop copy) were removed. `scripts/create-admin.js` now loads `src/(auth)/auth`.
