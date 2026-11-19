@@ -17,6 +17,10 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  // Geist Mono is only used on a couple of admin screens, so preloading it
+  // on every page made Chrome report "preloaded but not used" warnings.
+  // It still loads on demand wherever `font-mono` is rendered.
+  preload: false,
 });
 
 const playfair = Playfair_Display({

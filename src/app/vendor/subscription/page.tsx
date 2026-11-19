@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
   Crown,
@@ -85,6 +85,7 @@ const plans = [
 ];
 
 function SubscriptionContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -193,7 +194,17 @@ function SubscriptionContent() {
     fetchSubscription,
   ]);
 
+  /**
+   * Primary path: the in-app checkout page (src/app/payment) where the card
+   * is entered on our own branded screen and charged through Stripe.
+   */
   const handleUpgrade = async (planId: PlanId) => {
+    if (planId === "free" || upgrading) return;
+    router.push(`/payment?plan=${planId}`);
+  };
+
+  /** Fallback path: Stripe's own hosted Checkout page. */
+  const handleStripeCheckout = async (planId: PlanId) => {
     if (planId === "free" || upgrading) return;
 
     try {
@@ -280,7 +291,7 @@ function SubscriptionContent() {
 
             <span className="flex items-center gap-1 rounded-full bg-gold/15 px-2.5 py-1 text-[10px] font-semibold text-foreground">
               <Crown className="size-3 text-gold" />
-              {isPremiumActive ? "Premium Active" : "Stripe Checkout Ready"}
+              {isPremiumActive ? "Premium Active" : "Secure Card Payment Ready"}
             </span>
           </div>
 
@@ -364,7 +375,8 @@ function SubscriptionContent() {
         <div className="mb-5">
           <h2 className="font-heading text-xl font-bold">Choose Your Plan</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Pay securely with Stripe credit/debit card to instantly unlock all features.
+            Pay securely with your credit/debit card on WedPlan&apos;s own
+            checkout page and unlock every feature instantly.
           </p>
         </div>
 
@@ -465,27 +477,34 @@ function SubscriptionContent() {
                       )}
                     </div>
                   ) : isPremiumPlan ? (
-                    <button
-                      onClick={() => void handleUpgrade(plan.id)}
-                      disabled={upgrading !== null}
-                      className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                        isRecommended
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                          : "border border-primary bg-transparent text-primary hover:bg-primary/10"
-                      }`}
-                    >
-                      {upgrading === plan.id ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          Connecting to Stripe...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="size-4" />
-                          Pay with Stripe (${plan.price})
-                        </>
-                      )}
-                    </button>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => void handleUpgrade(plan.id)}
+                        className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+                          isRecommended
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "border border-primary bg-transparent text-primary hover:bg-primary/10"
+                        }`}
+                      >
+                        <CreditCard className="size-4" />
+                        Pay ${plan.price}
+                      </button>
+
+                      <button
+                        onClick={() => void handleStripeCheckout(plan.id)}
+                        disabled={upgrading !== null}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#e9e1d8] bg-white px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {upgrading === plan.id ? (
+                          <>
+                            <Loader2 className="size-4 animate-spin" />
+                            Connecting to Stripe...
+                          </>
+                        ) : (
+                          "Use Stripe Checkout instead"
+                        )}
+                      </button>
+                    </div>
                   ) : (
                     <button
                       disabled

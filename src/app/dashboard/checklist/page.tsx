@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 import {
   ListChecks,
   CheckCircle2,
@@ -8,6 +9,8 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+
+import { apiRequest } from "@/lib/api";
 
 /* ─── Types ─── */
 type ChecklistItem = {
@@ -229,22 +232,122 @@ function GroupSection({
 export default function ChecklistPage() {
   const [hydrated, setHydrated] = React.useState(false);
   const [doneMap, setDoneMap] = React.useState<Record<string, boolean>>({});
+  const [syncState, setSyncState] = React.useState<
+    "loading" | "saving" | "saved" | "local"
+  >("loading");
 
+  const saveTimer = React.useRef<number | null>(null);
+  const serverErrorShown = React.useRef(false);
+  const latestRef = React.useRef<Record<string, boolean> | null>(null);
+
+  const persistToServer = React.useCallback(
+    async (done: Record<string, boolean>) => {
+      try {
+        setSyncState("saving");
+        await apiRequest("/api/v1/planner/checklist", {
+          method: "PUT",
+          body: JSON.stringify(done),
+        });
+        setSyncState("saved");
+        serverErrorShown.current = false;
+      } catch (error) {
+        setSyncState("local");
+        if (!serverErrorShown.current) {
+          serverErrorShown.current = true;
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Couldn't save your checklist to your account.",
+            { description: "Progress is stored on this device for now." },
+          );
+        }
+      }
+    },
+    [],
+  );
+
+  /** Debounced save: localStorage immediately, MongoDB shortly after. */
+  const persist = React.useCallback(
+    (done: Record<string, boolean>) => {
+      latestRef.current = done;
+      saveChecklist(done);
+
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      saveTimer.current = window.setTimeout(() => {
+        saveTimer.current = null;
+        void persistToServer(done);
+      }, 500);
+    },
+    [persistToServer],
+  );
+
+  /* Flush any pending save when the user navigates away. */
+  React.useEffect(
+    () => () => {
+      if (saveTimer.current !== null && latestRef.current) {
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+        void persistToServer(latestRef.current);
+      }
+    },
+    [persistToServer],
+  );
+
+  /* Load: server first, localStorage as fallback / migration source. */
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setDoneMap(loadChecklist());
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      const local = loadChecklist();
+      let next = local;
+      let source: "server" | "local" = "local";
+
+      try {
+        const data = await apiRequest<{
+          checklist: Record<string, boolean> | null;
+        }>("/api/v1/planner/checklist");
+
+        const server = data.checklist;
+        const serverKeys = server ? Object.keys(server) : [];
+
+        if (server && serverKeys.length > 0) {
+          next = server;
+          source = "server";
+        } else if (Object.keys(local).length > 0) {
+          // First sign-in with older device-only progress → push it to MongoDB.
+          void persistToServer(local);
+          source = "local";
+        } else {
+          next = {};
+          source = "server";
+        }
+      } catch {
+        source = "local";
+      }
+
+      if (cancelled) return;
+
+      setDoneMap(next);
+      setSyncState(source === "server" ? "saved" : "local");
       setHydrated(true);
     }, 0);
-    return () => clearTimeout(timer);
-  }, []);
 
-  const handleToggle = React.useCallback((id: string) => {
-    setDoneMap((prev) => {
-      const updated = { ...prev, [id]: !prev[id] };
-      saveChecklist(updated);
-      return updated;
-    });
-  }, []);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [persistToServer]);
+
+  const handleToggle = React.useCallback(
+    (id: string) => {
+      setDoneMap((prev) => {
+        const updated = { ...prev, [id]: !prev[id] };
+        persist(updated);
+        return updated;
+      });
+    },
+    [persist],
+  );
 
   /* Overall progress */
   const allItems = DEFAULT_GROUPS.flatMap((g) => g.items);
@@ -275,7 +378,8 @@ export default function ChecklistPage() {
         </h1>
         <p className="max-w-lg text-balance text-muted-foreground">
           A complete month-by-month checklist to keep your wedding planning
-          on track. Tick off tasks as you complete them.
+          on track. Tick off tasks as you complete them — progress syncs to
+          your WedPlan account automatically.
         </p>
       </header>
 
@@ -354,8 +458,25 @@ export default function ChecklistPage() {
         ))}
       </div>
 
-      <p className="text-center text-xs text-muted-foreground">
-        ✅ Your checklist progress is saved locally on this device.
+      <p className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+        {syncState === "saving" ? (
+          <>
+            <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />
+            Saving to your WedPlan account…
+          </>
+        ) : syncState === "saved" ? (
+          <>
+            <CheckCircle2 className="size-3.5 text-emerald-600" />
+            Checklist progress saved to your account
+          </>
+        ) : syncState === "loading" ? (
+          "Loading your checklist…"
+        ) : (
+          <>
+            <span className="size-1.5 rounded-full bg-amber-500" />
+            Offline — progress is stored on this device and will sync later.
+          </>
+        )}
       </p>
     </section>
   );

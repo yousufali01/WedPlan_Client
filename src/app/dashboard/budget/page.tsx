@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 import {
   CircleDollarSign,
   Plus,
@@ -12,6 +13,8 @@ import {
   TrendingUp,
   AlertCircle,
 } from "lucide-react";
+
+import { apiRequest } from "@/lib/api";
 
 /* ─── Types ─── */
 type BudgetItem = {
@@ -220,23 +223,133 @@ export default function BudgetPage() {
   const [newActual, setNewActual] = React.useState("");
   const [showAddRow, setShowAddRow] = React.useState(false);
 
-  /* Load from localStorage once */
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      const saved = loadFromStorage();
-      setTotalBudget(saved.totalBudget);
-      setDraftTotal(String(saved.totalBudget));
-      setItems(saved.items);
-      setHydrated(true);
-    }, 0);
-    return () => clearTimeout(timer);
+  /* ─── Server sync ───
+   * The budget lives in MongoDB (one document per user) so it follows the
+   * account to any device. localStorage stays as the offline/first-paint
+   * fallback and is also used to migrate older local-only data.
+   */
+  const [syncState, setSyncState] = React.useState<
+    "loading" | "saving" | "saved" | "local"
+  >("loading");
+
+  const saveTimer = React.useRef<number | null>(null);
+  const serverErrorShown = React.useRef(false);
+  const latestRef = React.useRef<{ totalBudget: number; items: BudgetItem[] } | null>(
+    null,
+  );
+
+  const persistToServer = React.useCallback(async (data: {
+    totalBudget: number;
+    items: BudgetItem[];
+  }) => {
+    try {
+      setSyncState("saving");
+      await apiRequest("/api/v1/planner/budget", {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+      setSyncState("saved");
+      serverErrorShown.current = false;
+    } catch (error) {
+      // Not signed in, offline, or a network hiccup — keep working locally.
+      setSyncState("local");
+      if (!serverErrorShown.current) {
+        serverErrorShown.current = true;
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Couldn't save your budget to your account.",
+          { description: "Your changes are stored on this device for now." },
+        );
+      }
+    }
   }, []);
 
-  /* Persist on change */
+  /** Debounced save: localStorage immediately, MongoDB shortly after. */
+  const persist = React.useCallback(
+    (data: { totalBudget: number; items: BudgetItem[] }) => {
+      latestRef.current = data;
+      saveToStorage(data);
+
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      saveTimer.current = window.setTimeout(() => {
+        saveTimer.current = null;
+        void persistToServer(data);
+      }, 500);
+    },
+    [persistToServer],
+  );
+
+  /* Flush any pending save when the user navigates away. */
+  React.useEffect(
+    () => () => {
+      if (saveTimer.current !== null && latestRef.current) {
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+        void persistToServer(latestRef.current);
+      }
+    },
+    [persistToServer],
+  );
+
+  /* Load: server first, localStorage as fallback / migration source. */
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      const local = loadFromStorage();
+      let next = local;
+      let source: "server" | "local" = "local";
+
+      try {
+        const data = await apiRequest<{
+          budget: { totalBudget: number; items: BudgetItem[] } | null;
+        }>("/api/v1/planner/budget");
+
+        const server = data.budget;
+        const serverItems = Array.isArray(server?.items) ? server.items : [];
+
+        if (serverItems.length > 0) {
+          next = {
+            totalBudget: Number(server?.totalBudget) || local.totalBudget,
+            items: serverItems,
+          };
+          source = "server";
+        } else if (local.items.length > 0 || local.totalBudget !== 500000) {
+          // First sign-in with older device-only data → push it to MongoDB.
+          void persistToServer(local);
+          source = "local";
+        } else {
+          source = "server";
+          next = {
+            totalBudget: Number(server?.totalBudget) || local.totalBudget,
+            items: [],
+          };
+        }
+      } catch {
+        source = "local";
+      }
+
+      if (cancelled) return;
+
+      setTotalBudget(next.totalBudget);
+      setDraftTotal(String(next.totalBudget));
+      setItems(next.items);
+      setSyncState(source === "server" ? "saved" : "local");
+      setHydrated(true);
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [persistToServer]);
+
+  /* Persist on change (debounced) */
   React.useEffect(() => {
     if (!hydrated) return;
-    saveToStorage({ totalBudget, items });
-  }, [hydrated, totalBudget, items]);
+    persist({ totalBudget, items });
+  }, [hydrated, totalBudget, items, persist]);
 
   /* Derived sums */
   const totalEstimated = items.reduce((s, i) => s + i.estimated, 0);
@@ -297,7 +410,7 @@ export default function BudgetPage() {
         </h1>
         <p className="max-w-lg text-balance text-muted-foreground">
           Plan your total budget, add spending categories, and track estimated
-          vs actual costs — all saved locally on your device.
+          vs actual costs — saved automatically to your WedPlan account.
         </p>
       </header>
 
@@ -587,9 +700,25 @@ export default function BudgetPage() {
         )}
       </div>
 
-      <p className="text-center text-xs text-muted-foreground">
-        💡 Budget data is saved locally on this device. No sync across devices
-        yet.
+      <p className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+        {syncState === "saving" ? (
+          <>
+            <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />
+            Saving to your WedPlan account…
+          </>
+        ) : syncState === "saved" ? (
+          <>
+            <Check className="size-3.5 text-emerald-600" strokeWidth={3} />
+            All changes saved to your account
+          </>
+        ) : syncState === "loading" ? (
+          "Loading your budget…"
+        ) : (
+          <>
+            <span className="size-1.5 rounded-full bg-amber-500" />
+            Offline — changes are stored on this device and will sync later.
+          </>
+        )}
       </p>
     </section>
   );
