@@ -14,6 +14,13 @@ export type AuthUser = {
   avatarUrl?: string | null;
   role: UserRole;
   vendorApproved?: boolean;
+  // Vendor business profile (set server-side via PATCH /api/v1/profile/vendor).
+  businessName?: string;
+  studioName?: string;
+  phone?: string;
+  location?: string;
+  bio?: string;
+  website?: string;
 };
 
 export function useAuth() {
@@ -28,6 +35,12 @@ export function useAuth() {
     const typed = rawUser as typeof rawUser & {
       role?: string;
       vendorApproved?: boolean;
+      businessName?: string;
+      studioName?: string;
+      phone?: string;
+      location?: string;
+      bio?: string;
+      website?: string;
     };
 
     const role: UserRole =
@@ -45,6 +58,12 @@ export function useAuth() {
       avatarUrl: rawUser.image ?? null,
       role,
       vendorApproved: Boolean(typed.vendorApproved),
+      businessName: typed.businessName,
+      studioName: typed.studioName,
+      phone: typed.phone,
+      location: typed.location,
+      bio: typed.bio,
+      website: typed.website,
     };
   }, [rawUser]);
 

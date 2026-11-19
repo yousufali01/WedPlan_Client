@@ -81,6 +81,7 @@ export default function VendorSubscriptionPage() {
 
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState<PlanId | null>(null);
+  const [downgrading, setDowngrading] = useState(false);
 
   const fetchSubscription = useCallback(async () => {
     try {
@@ -128,6 +129,30 @@ export default function VendorSubscriptionPage() {
       );
     } finally {
       setUpgrading(null);
+    }
+  };
+
+  const handleDowngrade = async () => {
+    if (
+      !window.confirm(
+        "Switch back to the Free plan? Only 3 active services will be allowed.",
+      )
+    ) {
+      return;
+    }
+
+    setDowngrading(true);
+
+    try {
+      await apiRequest("/api/v1/subscription/downgrade", { method: "POST" });
+      toast.success("Switched to the Free plan.");
+      await fetchSubscription();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to switch plans.",
+      );
+    } finally {
+      setDowngrading(false);
     }
   };
 
@@ -312,13 +337,28 @@ export default function VendorSubscriptionPage() {
                   {/* Action */}
                   <div className="mt-8">
                     {isCurrent ? (
-                      <button
-                        disabled
-                        className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary"
-                      >
-                        <ShieldCheck className="size-4" />
-                        Current Plan
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          disabled
+                          className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary"
+                        >
+                          <ShieldCheck className="size-4" />
+                          Current Plan
+                        </button>
+
+                        {isPremiumPlan && (
+                          <button
+                            onClick={() => void handleDowngrade()}
+                            disabled={downgrading}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#e9e1d8] bg-white px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {downgrading ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : null}
+                            Switch to Free Plan
+                          </button>
+                        )}
+                      </div>
                     ) : isPremiumPlan ? (
                       <button
                         onClick={() => void handleUpgrade(plan.id)}

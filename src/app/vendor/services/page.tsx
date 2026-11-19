@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
+import { uploadImageToImgbb, validateImageFile } from "@/lib/imgbb";
 
 type ServiceItem = {
   _id: string;
@@ -58,6 +59,13 @@ export default function MyServicesPage() {
     description: "",
   });
 
+  const [editImage, setEditImage] = React.useState<{
+    file: File;
+    preview: string;
+  } | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = React.useState(false);
+  const editFileInputRef = React.useRef<HTMLInputElement>(null);
+
   const fetchServices = React.useCallback(async () => {
     setIsLoading(true);
 
@@ -90,6 +98,7 @@ export default function MyServicesPage() {
   // Edit service
   const openEditModal = (service: ServiceItem) => {
     setEditingService(service);
+    setEditImage(null);
 
     setEditForm({
       name: service.name,
@@ -97,6 +106,25 @@ export default function MyServicesPage() {
       price: String(service.price),
       location: service.location || "",
       description: service.description || "",
+    });
+  };
+
+  const handleEditImageSelect = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const error = validateImageFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+
+    setEditImage((previous) => {
+      if (previous) URL.revokeObjectURL(previous.preview);
+      return { file, preview: URL.createObjectURL(file) };
     });
   };
 
@@ -120,6 +148,14 @@ export default function MyServicesPage() {
     setUpdatingId(editingService._id);
 
     try {
+      let imageFields: { images?: string[]; image?: string } = {};
+
+      if (editImage) {
+        setIsUploadingImage(true);
+        const imageUrl = await uploadImageToImgbb(editImage.file);
+        imageFields = { images: [imageUrl], image: imageUrl };
+      }
+
       await apiRequest(`/api/v1/services/${editingService._id}`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -128,11 +164,14 @@ export default function MyServicesPage() {
           price: Number(editForm.price),
           location: editForm.location.trim(),
           description: editForm.description.trim(),
+          ...imageFields,
         }),
       });
 
       toast.success("Service updated successfully.");
 
+      if (editImage) URL.revokeObjectURL(editImage.preview);
+      setEditImage(null);
       setEditingService(null);
       await fetchServices();
     } catch (error) {
@@ -141,6 +180,7 @@ export default function MyServicesPage() {
           error instanceof Error ? error.message : "Please try again.",
       });
     } finally {
+      setIsUploadingImage(false);
       setUpdatingId(null);
     }
   };
@@ -430,7 +470,7 @@ export default function MyServicesPage() {
                           </span>
 
                           <span className="font-semibold text-foreground">
-                            ${Number(service.price).toLocaleString("en-US")}
+                            ৳{Number(service.price).toLocaleString("en-BD")}
                           </span>
                         </div>
 
@@ -638,9 +678,67 @@ export default function MyServicesPage() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Cover Image</label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#e9e1d8] bg-[#f2eee8]">
+                      {editImage ? (
+                        <img
+                          src={editImage.preview}
+                          alt="New cover preview"
+                          className="size-full object-cover"
+                        />
+                      ) : editingService.images?.[0] || editingService.image ? (
+                        <img
+                          src={editingService.images?.[0] || editingService.image}
+                          alt="Current cover"
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <ImagePlus className="size-6 text-muted-foreground" />
+                      )}
+                    </div>
+
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditImageSelect}
+                      className="hidden"
+                    />
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => editFileInputRef.current?.click()}
+                      className="gap-1.5"
+                    >
+                      <ImagePlus className="size-3.5" />
+                      Replace Image
+                    </Button>
+
+                    {editImage && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          URL.revokeObjectURL(editImage.preview);
+                          setEditImage(null);
+                        }}
+                        className="text-xs font-semibold text-red-600 hover:underline"
+                      >
+                        Remove new image
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Optional — PNG, JPG or WEBP up to 5 MB.
+                  </p>
+                </div>
+
                 <div className="rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-800">
-                  Editing a service does not change its existing approval
-                  status. Image replacement can be added separately.
+                  Editing a service does not change its approval status. A new
+                  cover image replaces the existing gallery image.
                 </div>
 
                 <div className="flex justify-end gap-2 border-t border-border pt-4">
@@ -648,22 +746,22 @@ export default function MyServicesPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setEditingService(null)}
-                    disabled={updatingId === editingService._id}
+                    disabled={updatingId === editingService._id || isUploadingImage}
                   >
                     Cancel
                   </Button>
 
                   <Button
                     type="submit"
-                    disabled={updatingId === editingService._id}
+                    disabled={updatingId === editingService._id || isUploadingImage}
                     className="gap-2"
                   >
-                    {updatingId === editingService._id ? (
+                    {updatingId === editingService._id || isUploadingImage ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
                       <Save className="size-4" />
                     )}
-                    Save Changes
+                    {isUploadingImage ? "Uploading image..." : "Save Changes"}
                   </Button>
                 </div>
               </form>

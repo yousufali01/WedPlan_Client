@@ -55,11 +55,22 @@ type VendorProfile = {
   };
 };
 
+type Subscription = {
+  plan: string;
+  planName: string;
+  activeServices: number;
+  activeServiceLimit: number | null;
+  remainingServices: number | null;
+};
+
 export default function VendorDashboardPage() {
   const { user } = useAuth();
 
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [services, setServices] = React.useState<ServiceItem[]>([]);
+  const [subscription, setSubscription] = React.useState<Subscription | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = React.useState(true);
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
 
@@ -71,8 +82,10 @@ export default function VendorDashboardPage() {
 
   const isApproved = vendor?.vendorApproved === true;
 
-  // Subscription information
+  // Subscription information (fresh from the server, session as fallback)
   const planName =
+    subscription?.planName ||
+    subscription?.plan ||
     vendor?.subscription?.plan ||
     vendor?.subscription?.name ||
     vendor?.subscriptionPlan ||
@@ -82,17 +95,21 @@ export default function VendorDashboardPage() {
   const normalizedPlan = planName.toLowerCase();
   const isPremium = normalizedPlan.includes("premium");
 
-  const planLimit = isPremium ? Infinity : 3;
+  const planLimit = subscription?.activeServiceLimit ?? (isPremium ? Infinity : 3);
 
   // Fetch vendor data
   const fetchVendorData = React.useCallback(async () => {
     setIsLoading(true);
 
     try {
-      const [bookingsRes, servicesRes] = await Promise.allSettled([
-        apiRequest<{ bookings: Booking[] }>("/api/v1/bookings"),
-        apiRequest<{ services: ServiceItem[] }>("/api/v1/services"),
-      ]);
+      const [bookingsRes, servicesRes, subscriptionRes] =
+        await Promise.allSettled([
+          apiRequest<{ bookings: Booking[] }>("/api/v1/bookings/vendor"),
+          apiRequest<{ services: ServiceItem[] }>("/api/v1/services/mine"),
+          apiRequest<{ subscription: Subscription }>(
+            "/api/v1/subscription/mine",
+          ),
+        ]);
 
       if (bookingsRes.status === "fulfilled" && bookingsRes.value.bookings) {
         setBookings(bookingsRes.value.bookings);
@@ -100,6 +117,10 @@ export default function VendorDashboardPage() {
 
       if (servicesRes.status === "fulfilled" && servicesRes.value.services) {
         setServices(servicesRes.value.services);
+      }
+
+      if (subscriptionRes.status === "fulfilled") {
+        setSubscription(subscriptionRes.value.subscription);
       }
     } catch (error) {
       console.error("Vendor dashboard error:", error);
@@ -152,9 +173,11 @@ export default function VendorDashboardPage() {
   // Dynamic statistics
   const totalServices = services.length;
 
-  const activeServices = isApproved
-    ? services.filter((service) => service.availability).length
-    : 0;
+  const activeServices =
+    subscription?.activeServices ??
+    (isApproved
+      ? services.filter((service) => service.availability).length
+      : 0);
 
   const pendingBookings = bookings.filter(
     (booking) => booking.status === "pending",
@@ -337,7 +360,7 @@ export default function VendorDashboardPage() {
                   <div className="mb-1.5 flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Service usage</span>
                     <span className="font-semibold text-foreground">
-                      {totalServices} / 3
+                      {activeServices} / {planLimit}
                     </span>
                   </div>
 
@@ -345,7 +368,10 @@ export default function VendorDashboardPage() {
                     <div
                       className="h-full rounded-full bg-primary transition-all"
                       style={{
-                        width: `${Math.min((totalServices / 3) * 100, 100)}%`,
+                        width: `${Math.min(
+                          (activeServices / Math.max(planLimit, 1)) * 100,
+                          100,
+                        )}%`,
                       }}
                     />
                   </div>
@@ -358,7 +384,7 @@ export default function VendorDashboardPage() {
                 variant="outline"
                 render={<Link href="/vendor/services/new" />}
                 className="gap-2 border-[#e9e1d8] bg-white"
-                disabled={!isPremium && totalServices >= planLimit}
+                disabled={!isPremium && activeServices >= planLimit}
               >
                 <PlusCircle className="size-4" />
                 Add Service

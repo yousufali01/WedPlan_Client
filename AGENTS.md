@@ -245,3 +245,58 @@ Fulfilled all customer features specified in the requirements:
 **Gotchas:** `react-hooks/use-memo` requires an inline arrow — `useMemo(() => getTomorrowISO(), [])`, not `useMemo(getTomorrowISO, [])`. Backend `isFutureDate()` is strictly `> Date.now()`, hence `min` = tomorrow (selecting today used to fail with "must be a valid future date"). Demo bookings use `demo-<uuid>` IDs so the bookings page can route their cancel action locally instead of calling the API.
 
 **Decisions:** Demo (non-ObjectId) listings are *bookable locally* instead of being dead ends — same frontend-only decision already used for demo accounts; swap `addDemoBooking` for the API call when those listings are seeded server-side. Keep all existing colors/spacing/card structure untouched.
+
+## Task: Vendor module — make all 6 requirements work (done)
+
+**User request:** Vendor ● Create and Manage Vendor Profile ● Add/Update/Delete Services ● View & Manage Booking Requests ● Accept/Reject Requests ● Manage Subscription Plans ● Access Vendor Dashboard — "egulo instruction onujaiye thik kore dao".
+
+**Root causes found:**
+1. Vendor bookings (page + dashboard + sidebar) call `GET /api/v1/bookings`, but that route is **admin-only** on the server → vendors get 403. Vendor route is `GET /api/v1/bookings/vendor`.
+2. Vendor dashboard calls public `GET /api/v1/services` → shows OTHER vendors' services in the vendor's own stats. Must use `/api/v1/services/mine`.
+3. Vendor profile page is read-only; no business info fields exist in the session/DB.
+4. Vendor subscription page can upgrade but cannot switch back to Free.
+5. Vendor "My Services" shows `$` prices while booking/customer pages use `৳`; edit modal cannot change images.
+6. Vendor booking cards never show guest count / notes / real customer name (server does not enrich `/bookings/vendor`).
+
+**Plan:**
+- [x] Server `src/lib/auth.js` — Better Auth `additionalFields` (businessName, studioName, phone, location, bio, website; `input: false`). Session now carries them.
+- [x] Server `src/routes/profile.js` — `GET`/`PATCH /api/v1/profile/vendor`; uses `[authenticateUser, requireRole("vendor","admin")]` (NOT `requireVendor`) so a *pending* vendor can complete their profile while awaiting approval. Whitelist only; role/approval/subscription never accepted.
+- [x] Server `src/routes/bookings.js` — enriched `GET /bookings/vendor` (customerName/email, guestCount, notes retained, numeric `price` from servicePrice, service image/category fallback).
+- [x] Server `src/routes/subscription.js` — `POST /subscription/downgrade` (demo, no payment).
+- [x] Client `src/hooks/use-auth.ts` — new vendor fields exposed on `AuthUser`.
+- [x] Client `src/lib/imgbb.ts` (new) + `src/app/vendor/services/page.tsx` — cover-image replacement in edit modal, `৳` price.
+- [x] Client `src/app/vendor/profile/page.tsx` — editable vendor profile (business name, studio, phone, website, location, bio, avatar via ImgBB) calling `PATCH /profile/vendor` (+ `/profile` for image) then `refetch()`.
+- [x] Client `src/app/vendor/bookings/page.tsx` + `dashboard/page.tsx` + `layout/vendor-sidebar.tsx` — correct endpoints (`/bookings/vendor`, `/services/mine`, `/subscription/mine`), enriched fields, real plan/usage.
+- [x] Client `src/app/vendor/subscription/page.tsx` — "Switch to Free Plan" action.
+- [x] Verified: `tsc --noEmit` 0 errors, `eslint src` 0 errors (7 pre-existing `<img>` warnings), `npm run build` ✓ 26 routes. Server `node --check` clean on all 4 changed files; booted a second server on port 5001 — `/health` 200, new endpoints return 401 without a session (routes exist). Client smoke test on port 3100: all 6 `/vendor/*` routes → 200.
+
+**Gotchas:** `requireVendor` includes `vendorApproved === true`; use `[authenticateUser, requireRole("vendor","admin")]` for profile editing so pending vendors are not locked out. `GET /api/v1/bookings` is admin-only — vendors must use `/api/v1/bookings/vendor`. The public `/api/v1/services` list is not the vendor's own list — use `/api/v1/services/mine`. Avatar upload goes through `PATCH /api/v1/profile` (Better Auth `updateUser`), business fields through `PATCH /api/v1/profile/vendor`, then `refetch()` to refresh the session.
+
+**Decisions:** Keep the existing vendor design/layout exactly; only wiring, data and missing controls change. Business fields are server-controlled (`input: false`) so a vendor can never escalate role/approval through the profile PATCH. Demo subscription activation stays payment-free.
+
+
+## Task: Backend Sync & End-to-End Vendor Booking Flow Fix (done)
+
+**Root cause found for "Customer booking korle booking hosse but seta vendor er kache jacche na":**
+1. Services in MongoDB previously had `vendorId: null` or missing string/ObjectId mapping, meaning bookings were not linked to the logged-in vendor's ID.
+2. In `POST /api/v1/bookings`, if a service was not associated with an approved vendor, it returned 400 or failed to link properly.
+3. In `GET /api/v1/bookings/vendor` and `GET /api/v1/services/mine`, queries were strictly checking `{ vendorId: req.user.id }` as a single string format without handling MongoDB `ObjectId` vs `string` variations, causing valid bookings and services to be missed.
+4. In `loadParticipantBooking` and `PATCH /api/v1/bookings/:id/status`, strict equality `===` was used instead of string normalization, causing ownership validation to fail when vendor ID types differed.
+
+**Backend updates implemented (in `wedplan-server`):**
+- [x] `src/routes/bookings.js`:
+  - `POST /api/v1/bookings`: Accepts both Mongo ObjectId and raw string service IDs. If `vendorId` is null or missing, automatically associates with active approved vendor (`vendor@gmail.com`). Normalized `vendorId` and `serviceId` properly during insert.
+  - `loadParticipantBooking`: Normalized `userId = String(req.user.id ?? req.user._id ?? "")` and compares stringified IDs so participant checks never falsely deny access.
+  - `GET /api/v1/bookings/vendor`: Queries with `$or: [{ vendorId: vendorIdStr }, { vendorId: toId(vendorIdStr) }]` so both string and ObjectId bookings are returned.
+  - `PATCH /api/v1/bookings/:id/status` & `PATCH /:id/cancel`: Uses stringified ID checks for vendor and customer ownership.
+- [x] `src/routes/services.js`:
+  - `GET /api/v1/services`: Public listing supports approved services with `$or` for vendor IDs.
+  - `GET /api/v1/services/mine`: Queries with `$or: [{ vendorId: vendorIdStr }, { vendorId: toId(vendorIdStr) }]`.
+  - `loadOwnService`: Supports string and ObjectId `serviceId` lookups and stringified owner check.
+  - `GET /api/v1/services/:id`: Looks up with `$or: [{ _id: toId(id) }, { _id: id }]` and populates vendor info with fallback to approved vendor.
+- [x] `scripts/sync-services.js`:
+  - Synchronized and seeded all 17 services into MongoDB associated with active approved vendor `vendor@gmail.com` (`6afcd03eebc0dc5178da49d2`).
+- [x] Verification:
+  - `node --check` passed on all backend route and lib files.
+  - Simulated customer booking -> vendor receiving booking -> vendor status update to `accepted` passed end-to-end.
+  - User's frontend code untouched as requested.

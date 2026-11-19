@@ -23,8 +23,13 @@ type Booking = {
   customerName?: string;
   customerEmail?: string;
   eventDate?: string;
+  guestCount?: number | null;
+  notes?: string;
+  serviceCategory?: string;
+  serviceImage?: string;
   status: "pending" | "accepted" | "rejected" | "cancelled";
   price?: number;
+  servicePrice?: number | string;
   createdAt?: string;
 };
 
@@ -61,7 +66,9 @@ export default function VendorBookingsPage() {
     setIsLoading(true);
 
     try {
-      const data = await apiRequest<{ bookings: Booking[] }>("/api/v1/bookings");
+      const data = await apiRequest<{ bookings: Booking[] }>(
+        "/api/v1/bookings/vendor",
+      );
       setBookings(data.bookings || []);
     } catch (error) {
       toast.error("Unable to load booking requests.", {
@@ -239,6 +246,21 @@ export default function VendorBookingsPage() {
                           ? new Date(booking.createdAt).toLocaleDateString()
                           : "—"}
                       </p>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        {booking.guestCount ? (
+                          <span>Guests: {booking.guestCount}</span>
+                        ) : null}
+                        {booking.serviceCategory ? (
+                          <span>Category: {booking.serviceCategory}</span>
+                        ) : null}
+                      </div>
+
+                      {booking.notes && (
+                        <p className="mt-2 rounded-lg bg-[#faf9f6] px-3 py-2 text-xs italic leading-5 text-[#555E53]">
+                          &ldquo;{booking.notes}&rdquo;
+                        </p>
+                      )}
                     </div>
                   </div>
 

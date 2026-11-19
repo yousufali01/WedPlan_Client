@@ -53,15 +53,25 @@ export function VendorSidebarContent({
   const { user } = useAuth();
 
   const [totalServices, setTotalServices] = React.useState(0);
+  const [activeServices, setActiveServices] = React.useState(0);
   const [pendingBookings, setPendingBookings] = React.useState(0);
+  const [planLabel, setPlanLabel] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
 
     void Promise.allSettled([
       apiRequest<{ services: unknown[] }>("/api/v1/services/mine"),
-      apiRequest<{ bookings: { status?: string }[] }>("/api/v1/bookings"),
-    ]).then(([servicesRes, bookingsRes]) => {
+      apiRequest<{ bookings: { status?: string }[] }>("/api/v1/bookings/vendor"),
+      apiRequest<{
+        subscription: {
+          plan: string;
+          planName: string;
+          activeServices: number;
+          activeServiceLimit: number | null;
+        };
+      }>("/api/v1/subscription/mine"),
+    ]).then(([servicesRes, bookingsRes, subscriptionRes]) => {
       if (cancelled) return;
 
       if (servicesRes.status === "fulfilled") {
@@ -74,6 +84,12 @@ export function VendorSidebarContent({
             (booking) => booking.status === "pending",
           ).length,
         );
+      }
+
+      if (subscriptionRes.status === "fulfilled") {
+        const subscription = subscriptionRes.value.subscription;
+        setPlanLabel(subscription.planName || subscription.plan);
+        setActiveServices(subscription.activeServices);
       }
     });
 
@@ -88,6 +104,7 @@ export function VendorSidebarContent({
     vendor?.businessName || vendor?.studioName || vendor?.name || "Your Studio";
 
   const planName =
+    planLabel ||
     vendor?.subscription?.plan ||
     vendor?.subscription?.name ||
     vendor?.subscriptionPlan ||
@@ -168,7 +185,7 @@ export function VendorSidebarContent({
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
           {isPremium
             ? "Enjoy your premium vendor benefits."
-            : `${totalServices} of 3 free service listings used.`}
+            : `${activeServices || totalServices} of 3 free service listings used.`}
         </p>
 
         {!isPremium && (
