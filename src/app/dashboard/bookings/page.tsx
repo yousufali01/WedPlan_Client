@@ -239,6 +239,12 @@ export default function BookingsPage() {
   const [statusFilter, setStatusFilter] = React.useState<BookingStatus | "all">("all");
   const [searchTerm, setSearchTerm] = React.useState("");
 
+  /* Auto-refresh interval for real-time vendor responses */
+  const POLL_INTERVAL_MS = 10_000; // 10 seconds
+
+  /* Track previous statuses to detect changes */
+  const prevStatusesRef = React.useRef<Map<string, string>>(new Map());
+
   /* Fetch bookings */
   const fetchBookings = React.useCallback(async () => {
     if (!user) return;
@@ -250,13 +256,38 @@ export default function BookingsPage() {
       const res = await apiRequest<{ bookings: Booking[] }>(
         "/api/v1/bookings/mine"
       );
-      setBookings(
-        [...demo, ...(res.bookings ?? [])].sort(
-          (a, b) =>
-            new Date(b.createdAt ?? 0).getTime() -
-            new Date(a.createdAt ?? 0).getTime()
-        )
+      const fresh = [...demo, ...(res.bookings ?? [])].sort(
+        (a, b) =>
+          new Date(b.createdAt ?? 0).getTime() -
+          new Date(a.createdAt ?? 0).getTime()
       );
+
+      // Check for status changes from pending → accepted/rejected
+      if (prevStatusesRef.current.size > 0) {
+        fresh.forEach((booking) => {
+          const id = booking._id ?? booking.id ?? "";
+          const prev = prevStatusesRef.current.get(id);
+          const curr = booking.status ?? "pending";
+          if (prev && prev !== curr && prev === "pending" && (curr === "accepted" || curr === "rejected")) {
+            toast.success(
+              curr === "accepted"
+                ? `✅ Your booking for "${booking.serviceName || "Wedding Service"}" was accepted!`
+                : `❌ Your booking for "${booking.serviceName || "Wedding Service"}" was declined.`,
+              { duration: 6000 }
+            );
+          }
+        });
+      }
+
+      // Update the status map
+      const nextMap = new Map<string, string>();
+      fresh.forEach((b) => {
+        const id = b._id ?? b.id ?? "";
+        if (id) nextMap.set(id, b.status ?? "pending");
+      });
+      prevStatusesRef.current = nextMap;
+
+      setBookings(fresh);
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to load bookings.";
@@ -267,11 +298,25 @@ export default function BookingsPage() {
     }
   }, [user]);
 
+  /* Initial load + polling for real-time vendor responses */
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchBookings();
-    }, 0);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+
+    const run = async () => {
+      if (!cancelled) await fetchBookings();
+    };
+
+    // Initial load
+    const timer = setTimeout(() => void run(), 0);
+
+    // Polling interval
+    const interval = setInterval(() => void run(), POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, [fetchBookings]);
 
   /* Cancel handler */
