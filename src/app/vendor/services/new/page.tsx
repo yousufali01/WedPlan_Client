@@ -214,7 +214,7 @@ export default function AddNewServicePage() {
         }),
       });
 
-      toast.success("Your service has been submitted for review!");
+      toast.success("Your service is now live on WedPlan!");
 
       selectedImages.forEach((image) => {
         URL.revokeObjectURL(image.preview);
@@ -259,8 +259,8 @@ export default function AddNewServicePage() {
             </h1>
 
             <p className="mt-2 text-sm text-muted-foreground">
-              Share your wedding service with couples and submit it
-              for admin review.
+              Share your wedding service with couples — it goes live on
+              WedPlan straight away.
             </p>
           </div>
 

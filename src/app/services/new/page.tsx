@@ -199,8 +199,8 @@ export default function AddServicePage() {
         }),
       });
 
-      toast.success("Service submitted for admin review!", {
-        description: "Your service is now pending approval.",
+      toast.success("Service published successfully!", {
+        description: "It is now live on WedPlan for couples to discover.",
       });
 
       router.push("/vendor/services");
