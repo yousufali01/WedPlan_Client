@@ -4,11 +4,19 @@ import { createAuthClient } from "better-auth/react";
 import { adminClient, jwtClient } from "better-auth/client/plugins";
 
 const getBaseURL = () => {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5000";
+  return (
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "http://localhost:5000"
+  );
 };
 
 export const authClient = createAuthClient({
-  baseURL: getBaseURL(),
+  baseURL: process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "http://localhost:5000",
   fetchOptions: {
     credentials: "include",
   },
