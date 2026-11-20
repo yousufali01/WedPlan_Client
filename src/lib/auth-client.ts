@@ -3,23 +3,21 @@
 import { createAuthClient } from "better-auth/react";
 import { adminClient, jwtClient } from "better-auth/client/plugins";
 
-const getBaseURL = () => {
-  return (
-    process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "http://localhost:5000"
+const apiURL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!apiURL) {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL is missing. Please configure your backend URL.",
   );
-};
+}
 
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "http://localhost:5000",
+  baseURL: apiURL,
+
   fetchOptions: {
     credentials: "include",
   },
+
   plugins: [adminClient(), jwtClient()],
 });
 
