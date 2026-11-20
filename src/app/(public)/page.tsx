@@ -1100,7 +1100,7 @@ export default function Home() {
 
       {/* ================= FINAL CTA ================= */}
 
-      <section className="px-5 pb-20 sm:px-8 md:pb-24 lg:px-12">
+      <section className="px-5 py-20 pb-20 sm:px-8 md:pb-24 lg:px-12">
         <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl bg-[#EAE4D8] px-6 py-16 text-center sm:px-12 sm:py-20">
           {/* Decorative circles */}
 
