@@ -131,3 +131,78 @@
     @apply font-sans;
   }
 }
+
+/* ================= GLOBAL HOMEPAGE ANIMATIONS ================= */
+
+@keyframes wedplanFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wedplanFloat {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-12px) rotate(2deg);
+  }
+}
+
+@keyframes wedplanSlowZoom {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.06);
+  }
+}
+
+.hero-reveal {
+  animation: wedplanFadeUp 0.85s ease-out both;
+}
+
+.hero-delay-1 {
+  animation-delay: 0.12s;
+}
+
+.hero-delay-2 {
+  animation-delay: 0.25s;
+}
+
+.hero-delay-3 {
+  animation-delay: 0.4s;
+}
+
+.hero-delay-4 {
+  animation-delay: 0.55s;
+}
+
+.service-card,
+.category-card {
+  will-change: transform;
+}
+
+.category-card {
+  animation: wedplanFadeUp 0.7s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
