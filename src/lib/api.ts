@@ -1,12 +1,16 @@
+
 import { authClient } from "@/lib/auth-client";
 
-const getApiUrl = () => {
-  return (
-    process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "http://localhost:5000"
+const envAPIURL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!envAPIURL) {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL is missing. Configure your backend URL."
   );
-};
+}
+
+// Validated API URL
+const API_URL: string = envAPIURL.replace(/\/+$/, "");
 
 export async function apiRequest<T>(
   endpoint: string,
@@ -14,33 +18,66 @@ export async function apiRequest<T>(
 ): Promise<T> {
   let token: string | undefined;
 
+  // Get Better Auth JWT token
   try {
-    const { data } = await authClient.token();
-    if (data?.token) {
+    const { data, error } = await authClient.token();
+
+    if (!error && data?.token) {
       token = data.token;
     }
   } catch {
-    // Session cookie will still be included via credentials: "include"
+    // Session cookie can still authenticate the request.
   }
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers as Record<string, string> | undefined),
-  };
+  // Safely merge headers
+  const headers = new Headers(options.headers);
 
-  const response = await fetch(`${getApiUrl()}${endpoint}`, {
-    ...options,
-    credentials: "include",
-    headers,
-  });
+  if (
+    !headers.has("Content-Type") &&
+    !(options.body instanceof FormData)
+  ) {
+    headers.set("Content-Type", "application/json");
+  }
 
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const cleanEndpoint = endpoint.startsWith("/")
+    ? endpoint
+    : `/${endpoint}`;
+
+  const response = await fetch(
+    `${API_URL}${cleanEndpoint}`,
+    {
+      ...options,
+      credentials: "include",
+      headers,
+    }
+  );
+
+  // Handle empty response
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get("content-type");
+
+  const result = contentType?.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  // Handle API errors
   if (!response.ok) {
-    const result = (await response.json().catch(() => null)) as {
-      message?: string;
-    } | null;
-    throw new Error(result?.message || `Request failed with status ${response.status}`);
+    const message =
+      typeof result === "object" && result !== null
+        ? result.message || result.error
+        : result;
+
+    throw new Error(
+      message || `API request failed: ${response.status}`
+    );
   }
 
-  return response.json() as Promise<T>;
+  return result as T;
 }
