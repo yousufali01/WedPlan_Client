@@ -184,7 +184,8 @@ function GoogleIcon({ className }: { className?: string }) {
 export function SignUpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackURL = searchParams.get("callbackURL") || searchParams.get("callbackUrl");
+  const callbackURL =
+    searchParams.get("callbackURL") || searchParams.get("callbackUrl");
 
   const {
     control,
@@ -325,8 +326,12 @@ export function SignUpForm() {
     }
 
     try {
-      const redirectQuery = callbackURL ? `&redirect=${encodeURIComponent(callbackURL)}` : "";
+      const redirectQuery = callbackURL
+        ? `&redirect=${encodeURIComponent(callbackURL)}`
+        : "";
+
       const googleCallbackURL = `${window.location.origin}/auth/callback?role=${role}${redirectQuery}`;
+
       const { error } = await authClient.signIn.social({
         provider: "google",
         callbackURL: googleCallbackURL,
@@ -413,8 +418,8 @@ export function SignUpForm() {
   /* ---------------------------------------------------------------- */
 
   return (
-    <section className="relative flex min-h-[calc(100dvh-4rem)] w-full items-center bg-gradient-to-b from-secondary/60 via-background to-accent/15 py-10">
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+    <section className="relative flex min-h-[calc(100dvh-4rem)] w-full max-w-full items-center overflow-x-clip bg-gradient-to-b from-secondary/60 via-background to-accent/15 py-10">
+      <div className="mx-auto grid w-full min-w-0 max-w-6xl grid-cols-1 items-center gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-16">
         {/* Brand Panel */}
 
         <AuthAside
@@ -424,7 +429,7 @@ export function SignUpForm() {
 
         {/* Form Card */}
 
-        <div className="mx-auto w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+        <div className="mx-auto w-full min-w-0 max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
           <div className="flex flex-col items-center gap-2 text-center">
             <div className="lg:hidden">
               <Logo />
