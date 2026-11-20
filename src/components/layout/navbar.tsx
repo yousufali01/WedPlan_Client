@@ -10,12 +10,9 @@ import {
   Menu,
   Settings,
 } from "lucide-react";
+import { toast } from "sonner";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -67,7 +64,9 @@ function UserAvatar({ size = "sm" }: { size?: "sm" | "default" }) {
   return (
     <Avatar size={size}>
       {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
-      <AvatarFallback>{getInitials(user.name) || <span className="sr-only">{user.name}</span>}</AvatarFallback>
+      <AvatarFallback>
+        {getInitials(user.name) || <span className="sr-only">{user.name}</span>}
+      </AvatarFallback>
     </Avatar>
   );
 }
@@ -76,6 +75,7 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, signOut, role } = useAuth();
+
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const dashboardHref =
@@ -85,18 +85,38 @@ export function Navbar() {
         ? siteConfig.dashboards.vendor
         : siteConfig.dashboards.customer;
 
+  // Logout with toast notification
   const handleSignOut = async () => {
     setMobileOpen(false);
-    await signOut();
+
+    try {
+      await signOut();
+
+      toast.success("Logged out successfully!");
+    } catch (error) {
+      console.error("Logout error:", error);
+
+      toast.error("Logout failed. Please try again.");
+    }
   };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
-        <Logo />
+        {/* Logo: Navigate to Home */}
+        <Link
+          href={siteConfig.routes.home}
+          aria-label="Go to homepage"
+          className="shrink-0"
+        >
+          <Logo />
+        </Link>
 
         {/* Desktop: public + authenticated nav links */}
-        <nav aria-label="Main navigation" className="hidden items-center gap-1 md:flex">
+        <nav
+          aria-label="Main navigation"
+          className="hidden items-center gap-1 md:flex"
+        >
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
 
@@ -109,7 +129,7 @@ export function Navbar() {
                   "rounded-lg px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                   isActive
                     ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 {link.label}
@@ -123,38 +143,63 @@ export function Navbar() {
           {isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger
-                render={<Button variant="ghost" className="gap-2 pl-1 pr-2" aria-label="Open user menu" />}
+                render={
+                  <Button
+                    variant="ghost"
+                    className="gap-2 pl-1 pr-2"
+                    aria-label="Open user menu"
+                  />
+                }
               >
                 <UserAvatar />
-                <span className="max-w-32 truncate text-sm font-medium">{user.name}</span>
-                <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
+                <span className="max-w-32 truncate text-sm font-medium">
+                  {user.name}
+                </span>
+                <ChevronDown
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
               </DropdownMenuTrigger>
+
               <DropdownMenuContent align="end" className="w-60">
-                {/* User name and profile image */}
                 <div className="flex items-center gap-2.5 px-1.5 py-1.5">
                   <UserAvatar size="default" />
+
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <p className="truncate text-sm font-medium">{user.name}</p>
+                      <p className="truncate text-sm font-medium">
+                        {user.name}
+                      </p>
+
                       {user.role && (
                         <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                           {user.role}
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+
+                    <p className="truncate text-xs text-muted-foreground">
+                      {user.email}
+                    </p>
                   </div>
                 </div>
+
                 <DropdownMenuSeparator />
+
                 <DropdownMenuItem onClick={() => router.push(dashboardHref)}>
                   <LayoutDashboard aria-hidden="true" />
                   Dashboard
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push(siteConfig.routes.profile)}>
+
+                <DropdownMenuItem
+                  onClick={() => router.push(siteConfig.routes.profile)}
+                >
                   <Settings aria-hidden="true" />
                   Profile Settings
                 </DropdownMenuItem>
+
                 <DropdownMenuSeparator />
+
                 <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
                   <LogOut aria-hidden="true" />
                   Logout
@@ -163,10 +208,16 @@ export function Navbar() {
             </DropdownMenu>
           ) : (
             <>
-              <Button variant="ghost" render={<Link href={siteConfig.routes.signIn} />}>
+              <Button
+                variant="ghost"
+                render={<Link href={siteConfig.routes.signIn} />}
+              >
                 Sign In
               </Button>
-              <Button render={<Link href={siteConfig.routes.signUp} />}>Sign Up</Button>
+
+              <Button render={<Link href={siteConfig.routes.signUp} />}>
+                Sign Up
+              </Button>
             </>
           )}
         </div>
@@ -185,6 +236,7 @@ export function Navbar() {
           >
             <Menu aria-hidden="true" />
           </SheetTrigger>
+
           <SheetContent side="right" className="w-80 max-w-[85vw]">
             <SheetHeader className="pb-2">
               <SheetTitle className="font-heading text-lg font-semibold tracking-tight">
@@ -192,7 +244,10 @@ export function Navbar() {
               </SheetTitle>
             </SheetHeader>
 
-            <nav aria-label="Mobile navigation" className="flex flex-col gap-1 px-4">
+            <nav
+              aria-label="Mobile navigation"
+              className="flex flex-col gap-1 px-4"
+            >
               {navLinks.map((link) => {
                 const isActive = pathname === link.href;
 
@@ -206,7 +261,7 @@ export function Navbar() {
                       "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                       isActive
                         ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
                     {link.label}
@@ -220,18 +275,26 @@ export function Navbar() {
                 <>
                   <div className="flex items-center gap-2.5 pb-2">
                     <UserAvatar size="default" />
+
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-medium">{user.name}</p>
+                        <p className="truncate text-sm font-medium">
+                          {user.name}
+                        </p>
+
                         {user.role && (
                           <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                             {user.role}
                           </span>
                         )}
                       </div>
-                      <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+
+                      <p className="truncate text-xs text-muted-foreground">
+                        {user.email}
+                      </p>
                     </div>
                   </div>
+
                   <Button
                     variant="outline"
                     render={
@@ -244,6 +307,7 @@ export function Navbar() {
                   >
                     Dashboard
                   </Button>
+
                   <Button
                     variant="outline"
                     render={
@@ -256,7 +320,12 @@ export function Navbar() {
                   >
                     Profile Settings
                   </Button>
-                  <Button variant="destructive" className="w-full" onClick={handleSignOut}>
+
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={handleSignOut}
+                  >
                     <LogOut aria-hidden="true" />
                     Logout
                   </Button>
@@ -275,6 +344,7 @@ export function Navbar() {
                   >
                     Sign In
                   </Button>
+
                   <Button
                     render={
                       <Link
