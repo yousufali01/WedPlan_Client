@@ -182,13 +182,15 @@ export default function AdminDashboardOverviewPage() {
   React.useEffect(() => {
     isMounted.current = true;
 
-    void fetchAdminData();
+    const timer = setTimeout(() => {
+      void fetchAdminData();
+    }, 0);
 
     return () => {
       isMounted.current = false;
+      clearTimeout(timer);
     };
   }, [fetchAdminData]);
-
   // ================= VENDOR APPROVAL / REJECTION =================
 
   const handleVendorApproval = async (vendorId: string, approved: boolean) => {
