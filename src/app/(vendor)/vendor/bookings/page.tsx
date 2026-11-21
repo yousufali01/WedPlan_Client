@@ -46,7 +46,10 @@ type SubscriptionInfo = {
   expired?: boolean;
 };
 
-const statusFilters: { value: StatusFilter; label: string }[] = [
+const statusFilters: {
+  value: StatusFilter;
+  label: string;
+}[] = [
   { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "accepted", label: "Accepted" },
@@ -58,10 +61,13 @@ function statusStyle(status: Booking["status"]) {
   switch (status) {
     case "accepted":
       return "bg-emerald-100 text-emerald-700";
+
     case "rejected":
       return "bg-red-100 text-red-700";
+
     case "cancelled":
       return "bg-gray-100 text-gray-600";
+
     default:
       return "bg-amber-100 text-amber-700";
   }
@@ -69,22 +75,38 @@ function statusStyle(status: Booking["status"]) {
 
 export default function VendorBookingsPage() {
   const [bookings, setBookings] = React.useState<Booking[]>([]);
-  const [subscription, setSubscription] = React.useState<SubscriptionInfo | null>(null);
+  const [subscription, setSubscription] =
+    React.useState<SubscriptionInfo | null>(null);
+
   const [isLoading, setIsLoading] = React.useState(true);
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<StatusFilter>("all");
 
+  // Vendor booking restriction notification
+  const handleVendorBookingAttempt = React.useCallback(() => {
+    toast.error("Booking Restricted", {
+      description:
+        "Vendors are not allowed to create bookings. Only customers can book wedding services.",
+      duration: 4000,
+    });
+  }, []);
+
+  // Fetch vendor booking requests and subscription
   const fetchBookings = React.useCallback(async () => {
     setIsLoading(true);
 
     try {
       const [bookingsRes, subRes] = await Promise.allSettled([
         apiRequest<{ bookings: Booking[] }>("/api/v1/bookings/vendor"),
-        apiRequest<{ subscription: SubscriptionInfo }>("/api/v1/subscription/mine"),
+        apiRequest<{ subscription: SubscriptionInfo }>(
+          "/api/v1/subscription/mine",
+        ),
       ]);
 
       if (bookingsRes.status === "fulfilled") {
         setBookings(bookingsRes.value.bookings || []);
+      } else {
+        toast.error("Unable to load booking requests.");
       }
 
       if (subRes.status === "fulfilled") {
@@ -101,14 +123,20 @@ export default function VendorBookingsPage() {
   }, []);
 
   React.useEffect(() => {
-    const timer = setTimeout(() => void fetchBookings(), 0);
+    const timer = setTimeout(() => {
+      void fetchBookings();
+    }, 0);
+
     return () => clearTimeout(timer);
   }, [fetchBookings]);
 
+  // Accept or decline customer booking requests
   const handleBookingStatus = async (
     bookingId: string,
     status: "accepted" | "rejected",
   ) => {
+    if (updatingId) return;
+
     setUpdatingId(bookingId);
 
     try {
@@ -118,7 +146,9 @@ export default function VendorBookingsPage() {
       });
 
       toast.success(
-        status === "accepted" ? "Booking accepted!" : "Booking declined.",
+        status === "accepted"
+          ? "Booking accepted successfully!"
+          : "Booking declined successfully.",
       );
 
       setBookings((prev) =>
@@ -127,7 +157,7 @@ export default function VendorBookingsPage() {
         ),
       );
     } catch (error) {
-      toast.error("Failed to update booking status", {
+      toast.error("Failed to update booking status.", {
         description:
           error instanceof Error ? error.message : "Please try again.",
       });
@@ -136,12 +166,15 @@ export default function VendorBookingsPage() {
     }
   };
 
+  // Subscription calculation
   const isPremium =
     subscription?.isPremium !== undefined
       ? subscription.isPremium === true
-      : ["premium_monthly", "premium_yearly"].includes(subscription?.plan || "") &&
-        subscription?.status === "active";
+      : ["premium_monthly", "premium_yearly"].includes(
+          subscription?.plan || "",
+        ) && subscription?.status === "active";
 
+  // Filter and sort bookings
   const allFilteredBookings = [...bookings]
     .filter((booking) => filter === "all" || booking.status === filter)
     .sort(
@@ -150,12 +183,15 @@ export default function VendorBookingsPage() {
         new Date(a.createdAt || 0).getTime(),
     );
 
-  // In Free plan: limit to 3 events. In Paid plan: show all events.
+  // Free plan: Maximum 3 visible bookings
   const visibleBookings = isPremium
     ? allFilteredBookings
     : allFilteredBookings.slice(0, 3);
 
-  const hiddenCount = Math.max(0, allFilteredBookings.length - visibleBookings.length);
+  const hiddenCount = Math.max(
+    0,
+    allFilteredBookings.length - visibleBookings.length,
+  );
 
   return (
     <ProtectedRoute allowedRoles={["vendor", "admin"]}>
@@ -167,9 +203,14 @@ export default function VendorBookingsPage() {
               <p className="text-xs font-medium uppercase tracking-[1.5px] text-primary">
                 Vendor Workspace
               </p>
-              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
-                isPremium ? "bg-gold/15 text-foreground" : "bg-primary/10 text-primary"
-              }`}>
+
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+                  isPremium
+                    ? "bg-gold/15 text-foreground"
+                    : "bg-primary/10 text-primary"
+                }`}
+              >
                 {isPremium ? "Premium Active" : "Free Plan (3 Events Max)"}
               </span>
             </div>
@@ -190,7 +231,9 @@ export default function VendorBookingsPage() {
             disabled={isLoading}
             className="w-fit gap-2 border-[#e9e1d8] bg-white"
           >
-            <RefreshCw className={`size-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`size-3.5 ${isLoading ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
         </div>
@@ -200,16 +243,19 @@ export default function VendorBookingsPage() {
           <div className="flex flex-col gap-3 rounded-xl border border-[#eadbb5] bg-gradient-to-r from-[#fffdf7] via-white to-[#faf8f1] p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gold/15 text-gold">
-                <Crown className="size-5 text-gold" />
+                <Crown className="size-5" />
               </div>
+
               <div>
                 <h4 className="text-sm font-semibold">
-                  Free Plan: Displaying {visibleBookings.length} of {allFilteredBookings.length} Events
+                  Free Plan: Displaying {visibleBookings.length} of{" "}
+                  {allFilteredBookings.length} Events
                 </h4>
+
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {subscription?.expired
                     ? "Your Premium plan has expired, so only 3 recent events are visible. Renew to unlock all events."
-                    : "Free plan shows up to 3 booking events. Upgrade to Premium with Stripe to unlock all unlimited events and client requests."}
+                    : "Free plan shows up to 3 booking events. Upgrade to Premium with Stripe to unlock all events and client requests."}
                 </p>
               </div>
             </div>
@@ -225,7 +271,7 @@ export default function VendorBookingsPage() {
           </div>
         )}
 
-        {/* Filters */}
+        {/* Status Filters */}
         <div className="flex flex-wrap items-center gap-2">
           {statusFilters.map((item) => {
             const active = filter === item.value;
@@ -248,7 +294,7 @@ export default function VendorBookingsPage() {
           })}
         </div>
 
-        {/* Bookings list */}
+        {/* Booking Requests */}
         <div className="overflow-hidden rounded-xl border border-[#e9e1d8] bg-white shadow-sm">
           {isLoading ? (
             <div className="flex min-h-[240px] items-center justify-center">
@@ -291,7 +337,9 @@ export default function VendorBookingsPage() {
                         </h3>
 
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusStyle(booking.status)}`}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusStyle(
+                            booking.status,
+                          )}`}
                         >
                           {booking.status}
                         </span>
@@ -321,6 +369,7 @@ export default function VendorBookingsPage() {
                         {booking.guestCount ? (
                           <span>Guests: {booking.guestCount}</span>
                         ) : null}
+
                         {booking.serviceCategory ? (
                           <span>Category: {booking.serviceCategory}</span>
                         ) : null}
@@ -334,6 +383,7 @@ export default function VendorBookingsPage() {
                     </div>
                   </div>
 
+                  {/* Booking Request Management */}
                   <div className="flex items-center justify-between gap-3 sm:justify-end">
                     {typeof booking.price === "number" && (
                       <p className="text-sm font-semibold">
@@ -380,18 +430,24 @@ export default function VendorBookingsPage() {
           )}
         </div>
 
-        {/* Hidden Bookings Notice for Free Plan */}
+        {/* Hidden Bookings Notice */}
         {!isPremium && hiddenCount > 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[#eadbb5] bg-[#fffdf7] p-6 text-center">
             <Crown className="size-7 text-gold" />
+
             <div>
               <h4 className="text-sm font-semibold">
-                +{hiddenCount} More Booking {hiddenCount === 1 ? "Event" : "Events"} Hidden
+                +{hiddenCount} More Booking{" "}
+                {hiddenCount === 1 ? "Event" : "Events"} Hidden
               </h4>
+
               <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">
-                You have received {allFilteredBookings.length} total booking requests. The Free Plan allows viewing up to 3 events. Upgrade to Premium via Stripe to manage all requests.
+                You have received {allFilteredBookings.length} total booking
+                requests. The Free Plan allows viewing up to 3 events. Upgrade
+                to Premium via Stripe to manage all requests.
               </p>
             </div>
+
             <Button
               size="sm"
               render={<Link href="/vendor/subscription" />}
@@ -403,7 +459,7 @@ export default function VendorBookingsPage() {
           </div>
         )}
 
-        {/* Info note */}
+        {/* Information Note */}
         <div className="flex items-start gap-3 rounded-xl border border-[#eadbb5] bg-[#fffdf7] p-4">
           <Clock3 className="mt-0.5 size-4 shrink-0 text-gold" />
 

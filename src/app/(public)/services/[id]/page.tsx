@@ -118,7 +118,8 @@ const DEFAULT_SERVICES_MAP: Record<string, ServiceDetail> = {
     description:
       "Capturing authentic emotions, candid laughter and timeless royal wedding portraits with 4K cinematography. Our comprehensive wedding package includes dual senior photographers, aerial drone coverage, a teaser trailer, a 30-minute cinematic feature film, and an archival heirloom photo album with 150 edited high-resolution spreads.",
     location: "Gulshan, Dhaka",
-    image: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1400&q=85",
+    image:
+      "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1400&q=85",
     images: [
       "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85",
       "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=1200&q=85",
@@ -139,7 +140,8 @@ const DEFAULT_SERVICES_MAP: Record<string, ServiceDetail> = {
     description:
       "A magnificent royal ballroom accommodating up to 1,200 guests with custom crystal chandeliers, state-of-the-art acoustic sound engineering, bridal dressing suites, VIP green rooms, and dedicated multi-level valet parking. The venue is fully air-conditioned and backed by full generator backup.",
     location: "Dhanmondi, Dhaka",
-    image: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1400&q=85",
+    image:
+      "https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1400&q=85",
     images: [
       "https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1200&q=85",
       "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=1200&q=85",
@@ -159,7 +161,8 @@ const DEFAULT_SERVICES_MAP: Record<string, ServiceDetail> = {
     description:
       "Bespoke wedding stage styling featuring imported and seasonal fresh flowers, customized lighting setups, fairy light tunnels, royal bridal sofas, floral entryway gates, and themed guest table centerpieces designed according to your color palette.",
     location: "Banani, Dhaka",
-    image: "https://images.unsplash.com/photo-1507504031003-b417219a0fde?auto=format&fit=crop&w=1400&q=85",
+    image:
+      "https://images.unsplash.com/photo-1507504031003-b417219a0fde?auto=format&fit=crop&w=1400&q=85",
     availability: true,
     vendor: {
       name: "Floral Dream Studio",
@@ -175,7 +178,8 @@ const DEFAULT_SERVICES_MAP: Record<string, ServiceDetail> = {
     description:
       "Signature traditional wedding banquet including authentic Basmati Kacchi Biryani with tender mutton, succulent chicken roast, seekh kebabs, borhani, jorda, firni, and live gourmet dessert counters. Prepared with pure ghee and premium spices by master chefs.",
     location: "Uttara, Dhaka",
-    image: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1400&q=85",
+    image:
+      "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1400&q=85",
     availability: true,
     vendor: {
       name: "Master Chef Shahi Dawat",
@@ -191,7 +195,8 @@ const DEFAULT_SERVICES_MAP: Record<string, ServiceDetail> = {
     description:
       "Exclusive high-definition waterproof airbrush bridal makeup, luxury skin preparation, intricate bridal hairstyle with real floral accents, dupatta draping, and jewelry setting. Includes a pre-wedding consultation and touch-up kit.",
     location: "Bashundhara, Dhaka",
-    image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1400&q=85",
+    image:
+      "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1400&q=85",
     availability: true,
     vendor: {
       name: "Glamour by Aysha",
@@ -207,7 +212,8 @@ const DEFAULT_SERVICES_MAP: Record<string, ServiceDetail> = {
     description:
       "End-to-end wedding planning from initial concept design to final vendor negotiation, timeline management, RSVP tracking, rehearsal coordination, and dedicated on-day shadow coordinators to ensure every second unfolds flawlessly.",
     location: "Mohakhali, Dhaka",
-    image: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1400&q=85",
+    image:
+      "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1400&q=85",
     availability: true,
     vendor: {
       name: "Perfect Moments Planning",
@@ -224,8 +230,10 @@ function isRealMongoId(id: string): boolean {
 
 function formatServicePrice(service: ServiceDetail): string {
   const raw = service.price ?? service.startingPrice;
-  if (raw === undefined || raw === null || raw === "") return "Contact for pricing";
-  if (typeof raw === "string" && (raw.includes("৳") || raw.includes("$"))) return raw;
+  if (raw === undefined || raw === null || raw === "")
+    return "Contact for pricing";
+  if (typeof raw === "string" && (raw.includes("৳") || raw.includes("$")))
+    return raw;
   const num = Number(raw);
   return Number.isNaN(num) ? String(raw) : `৳${num.toLocaleString("en-BD")}`;
 }
@@ -244,13 +252,20 @@ function ServiceDetailsContent() {
   const params = useParams();
   const router = useRouter();
   const { user, isPending, isAuthenticated } = useAuth();
+
+  // Booking permission: only customer accounts can create bookings.
+  const userRole = String(user?.role || "").toLowerCase();
+  const isVendor = userRole === "vendor";
+  const canCreateBooking = userRole === "customer";
+
   const serviceId = (params?.id as string) || "";
   const isDemo = !isRealMongoId(serviceId);
 
   const [service, setService] = React.useState<ServiceDetail | null>(null);
   const [activeImage, setActiveImage] = React.useState<string>("");
   const [isLoading, setIsLoading] = React.useState(true);
-  const [minDate, setMinDate] = React.useState<string>('');
+  const [minDate, setMinDate] = React.useState<string>("");
+
   React.useEffect(() => {
     setMinDate(getTomorrowISO());
   }, []);
@@ -260,7 +275,7 @@ function ServiceDetailsContent() {
     if (!isPending && !isAuthenticated) {
       toast.info("Please sign in to view wedding service details.");
       router.replace(
-        `${siteConfig.routes.signIn}?callbackURL=${encodeURIComponent(`/services/${serviceId}`)}`
+        `${siteConfig.routes.signIn}?callbackURL=${encodeURIComponent(`/services/${serviceId}`)}`,
       );
     }
   }, [isPending, isAuthenticated, router, serviceId]);
@@ -287,7 +302,9 @@ function ServiceDetailsContent() {
           const data = await response.json();
           if (data?.service) {
             setService(data.service);
-            setActiveImage(data.service.image || data.service.images?.[0] || "");
+            setActiveImage(
+              data.service.image || data.service.images?.[0] || "",
+            );
             return;
           }
         }
@@ -302,7 +319,11 @@ function ServiceDetailsContent() {
 
         // Otherwise fallback to first default service
         const first = DEFAULT_SERVICES_MAP["photography-heritage"];
-        setService({ ...first, _id: serviceId, name: `${first.name} (${serviceId})` });
+        setService({
+          ...first,
+          _id: serviceId,
+          name: `${first.name} (${serviceId})`,
+        });
         setActiveImage(first.image || "");
       } catch {
         const fallback =
@@ -323,11 +344,32 @@ function ServiceDetailsContent() {
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent vendors and all non-customer roles from creating bookings.
+    if (isVendor) {
+      toast.error("Booking Restricted", {
+        description:
+          "Vendor accounts cannot create bookings. Only customers can book wedding services.",
+        duration: 4000,
+      });
+      return;
+    }
+
+    if (!canCreateBooking) {
+      toast.error("Booking Restricted", {
+        description: "Only customer accounts can create bookings.",
+        duration: 4000,
+      });
+      return;
+    }
+
     if (!user) {
       toast.error("Please sign in to book this wedding service.", {
         action: {
           label: "Sign In",
-          onClick: () => router.push(`${siteConfig.routes.signIn}?callbackURL=/services/${serviceId}`),
+          onClick: () =>
+            router.push(
+              `${siteConfig.routes.signIn}?callbackURL=/services/${serviceId}`,
+            ),
         },
       });
       return;
@@ -386,7 +428,9 @@ function ServiceDetailsContent() {
       });
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Failed to create booking request.";
+        err instanceof Error
+          ? err.message
+          : "Failed to create booking request.";
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -411,7 +455,8 @@ function ServiceDetailsContent() {
       <div className="mx-auto max-w-xl px-5 py-24 text-center">
         <h2 className="font-heading text-2xl font-bold">Service Not Found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The wedding service you are looking for is unavailable or does not exist.
+          The wedding service you are looking for is unavailable or does not
+          exist.
         </p>
         <Button
           render={<Link href={siteConfig.routes.services} />}
@@ -427,9 +472,10 @@ function ServiceDetailsContent() {
   const serviceName = service.name || service.title || "Wedding Service";
   const priceDisplay = formatServicePrice(service);
 
-  const imagesList = service.images && service.images.length > 0
-    ? service.images
-    : [service.image || activeImage];
+  const imagesList =
+    service.images && service.images.length > 0
+      ? service.images
+      : [service.image || activeImage];
 
   return (
     <div className="min-h-screen bg-[#FAF8F2] pb-20 text-[#183D2D]">
@@ -508,7 +554,9 @@ function ServiceDetailsContent() {
                     key={i}
                     onClick={() => setActiveImage(img)}
                     className={`relative size-20 shrink-0 overflow-hidden rounded-xl border-2 transition ${
-                      activeImage === img ? "border-primary ring-2 ring-primary/30" : "border-border opacity-70 hover:opacity-100"
+                      activeImage === img
+                        ? "border-primary ring-2 ring-primary/30"
+                        : "border-border opacity-70 hover:opacity-100"
                     }`}
                   >
                     <div
@@ -530,7 +578,11 @@ function ServiceDetailsContent() {
                         <Star
                           key={s}
                           size={14}
-                          fill={s <= Math.round(service.rating ?? 0) ? "currentColor" : "none"}
+                          fill={
+                            s <= Math.round(service.rating ?? 0)
+                              ? "currentColor"
+                              : "none"
+                          }
                         />
                       ))}
                       <span className="ml-2 text-xs font-semibold text-muted-foreground">
@@ -581,7 +633,8 @@ function ServiceDetailsContent() {
                       WedPlan Verified Partner
                     </h3>
                     <p className="text-[11px] text-muted-foreground">
-                      Background-checked wedding professional with proven reviews.
+                      Background-checked wedding professional with proven
+                      reviews.
                     </p>
                   </div>
                 </div>
@@ -595,7 +648,8 @@ function ServiceDetailsContent() {
                       Flexible Rescheduling
                     </h3>
                     <p className="text-[11px] text-muted-foreground">
-                      Peace of mind protection for unexpected wedding date changes.
+                      Peace of mind protection for unexpected wedding date
+                      changes.
                     </p>
                   </div>
                 </div>
@@ -637,16 +691,22 @@ function ServiceDetailsContent() {
                   {service.vendor?.image ? (
                     <div
                       className="size-full bg-cover bg-center"
-                      style={{ backgroundImage: `url('${service.vendor.image}')` }}
+                      style={{
+                        backgroundImage: `url('${service.vendor.image}')`,
+                      }}
                     />
                   ) : (
-                    (service.vendor?.businessName || service.vendor?.name || "W")[0]
+                    (service.vendor?.businessName ||
+                      service.vendor?.name ||
+                      "W")[0]
                   )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-heading text-base font-bold text-[#183D2D]">
-                      {service.vendor?.businessName || service.vendor?.name || "Official WedPlan Partner"}
+                      {service.vendor?.businessName ||
+                        service.vendor?.name ||
+                        "Official WedPlan Partner"}
                     </h3>
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                       Verified
@@ -680,11 +740,58 @@ function ServiceDetailsContent() {
                   Request a Booking
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Send your preferred wedding date and details to reserve your slot.
+                  Send your preferred wedding date and details to reserve your
+                  slot.
                 </p>
               </div>
 
-              {bookingSuccess ? (
+              {isVendor ? (
+                <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-5 py-8 text-center">
+                  <div className="flex size-14 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                    <ShieldCheck className="size-7" />
+                  </div>
+
+                  <h4 className="mt-4 font-heading text-lg font-bold text-[#183D2D]">
+                    Booking Restricted
+                  </h4>
+
+                  <p className="mt-2 max-w-xs text-xs leading-6 text-muted-foreground">
+                    Vendor accounts cannot create wedding bookings. Only
+                    customer accounts can request this service.
+                  </p>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      toast.error("Vendors are not allowed to create bookings.")
+                    }
+                    className="mt-5 w-full border-amber-300 text-amber-800 hover:bg-amber-100"
+                  >
+                    <ShieldCheck className="mr-2 size-4" />
+                    Booking Not Available
+                  </Button>
+
+                  <Link
+                    href="/vendor/dashboard"
+                    className="mt-4 text-xs font-semibold text-primary hover:underline"
+                  >
+                    Back to Vendor Dashboard
+                  </Link>
+                </div>
+              ) : !canCreateBooking ? (
+                <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-center">
+                  <ShieldCheck className="mx-auto size-8 text-red-600" />
+
+                  <h4 className="mt-3 font-heading font-bold text-[#183D2D]">
+                    Booking Unavailable
+                  </h4>
+
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    This account does not have permission to create bookings.
+                  </p>
+                </div>
+              ) : bookingSuccess ? (
                 <div className="mt-6 flex flex-col items-center justify-center py-6 text-center">
                   <div className="flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                     <Check className="size-7" />
@@ -714,8 +821,8 @@ function ServiceDetailsContent() {
                       Currently Unavailable
                     </h4>
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                      This vendor is not accepting new bookings right now. Please
-                      browse other services for your date.
+                      This vendor is not accepting new bookings right now.
+                      Please browse other services for your date.
                     </p>
                   </div>
                   <Button
@@ -729,14 +836,16 @@ function ServiceDetailsContent() {
                 <form onSubmit={handleBooking} className="mt-5 space-y-4">
                   {isDemo && (
                     <div className="rounded-xl border border-[#E8E1D3] bg-[#FAF8F2] px-3 py-2 text-[11px] leading-5 text-[#555E53]">
-                      Curated sample listing — pick a date below and your request
-                      will be saved locally in My Bookings.
+                      Curated sample listing — pick a date below and your
+                      request will be saved locally in My Bookings.
                     </div>
                   )}
+
                   {/* Event Date */}
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-[#183D2D]">
-                      Wedding / Event Date <span className="text-red-500">*</span>
+                      Wedding / Event Date{" "}
+                      <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -823,7 +932,9 @@ export default function ServiceDetailsPage() {
       fallback={
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
           <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading wedding service details...</p>
+          <p className="text-sm text-muted-foreground">
+            Loading wedding service details...
+          </p>
         </div>
       }
     >
