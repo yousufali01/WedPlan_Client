@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Check,
@@ -52,14 +52,14 @@ type SubscriptionResponse = {
 };
 
 type CheckoutResponse = {
-  success: boolean;
+  success?: boolean;
   message?: string;
   checkoutUrl?: string;
   sessionId?: string;
 };
 
 type VerifyResponse = {
-  success: boolean;
+  success?: boolean;
   message?: string;
   subscription?: SubscriptionResponse;
 };
@@ -141,22 +141,17 @@ const getPlanName = (plan: PlanId) => {
   }
 };
 
-/**
- * Backend /mine returns subscription information at the root.
- * The verification endpoint returns it inside a subscription object.
- * This normalizer supports both response structures.
- */
+/* ================= NORMALIZE SUBSCRIPTION ================= */
+
 const normalizeSubscription = (
-  response: SubscriptionResponse | undefined | null,
+  response: SubscriptionResponse | null | undefined,
 ): Subscription | null => {
   if (!response) return null;
 
   const nested = response.subscription;
 
-  const raw =
-    nested && typeof nested === "object"
-      ? (nested as Record<string, unknown>)
-      : {};
+  const raw: Record<string, unknown> =
+    nested && typeof nested === "object" ? nested : {};
 
   const planValue = isValidPlan(raw.plan)
     ? raw.plan
@@ -222,7 +217,6 @@ const normalizeSubscription = (
 /* ================= SUBSCRIPTION CONTENT ================= */
 
 function SubscriptionContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -233,13 +227,6 @@ function SubscriptionContent() {
   const [isVerifying, setIsVerifying] = useState(false);
 
   const sessionId = searchParams.get("session_id");
-
-  // Backend success URL:
-  // /vendor/subscription?session_id={CHECKOUT_SESSION_ID}
-
-  // Backend cancel URL:
-  // /vendor/subscription?payment=cancelled
-
   const paymentStatus = searchParams.get("payment");
 
   const isCanceled =
@@ -278,7 +265,17 @@ function SubscriptionContent() {
   const clearCheckoutParams = useCallback(() => {
     if (typeof window === "undefined") return;
 
-    window.history.replaceState({}, document.title, window.location.pathname);
+    const url = new URL(window.location.href);
+
+    url.searchParams.delete("session_id");
+    url.searchParams.delete("payment");
+    url.searchParams.delete("canceled");
+
+    window.history.replaceState(
+      {},
+      document.title,
+      `${url.pathname}${url.search}${url.hash}`,
+    );
   }, []);
 
   /* ================= VERIFY STRIPE PAYMENT ================= */
@@ -292,7 +289,7 @@ function SubscriptionContent() {
       setIsVerifying(true);
 
       try {
-        const res = await apiRequest<VerifyResponse>(
+        const response = await apiRequest<VerifyResponse>(
           "/api/v1/subscription/verify-stripe-session",
           {
             method: "POST",
@@ -307,27 +304,25 @@ function SubscriptionContent() {
 
         if (!active) return;
 
-        if (!res.success) {
-          throw new Error(res.message || "Payment verification failed.");
+        if (!response.success) {
+          throw new Error(response.message || "Payment verification failed.");
         }
 
         toast.success(
-          res.message ||
+          response.message ||
             "Payment verified! Your Premium subscription is now active.",
         );
 
-        if (res.subscription) {
-          const normalized = normalizeSubscription(res.subscription);
+        if (response.subscription) {
+          const normalized = normalizeSubscription(response.subscription);
 
           if (normalized) {
             setSubscription(normalized);
           }
         }
 
-        // Remove Stripe session ID from the URL.
         clearCheckoutParams();
 
-        // Fetch latest subscription from backend.
         await fetchSubscription();
       } catch (error) {
         if (!active) return;
@@ -346,14 +341,17 @@ function SubscriptionContent() {
       }
     };
 
-    void verifyPayment();
+    const timer = setTimeout(() => {
+      void verifyPayment();
+    }, 0);
 
     return () => {
       active = false;
+      clearTimeout(timer);
     };
   }, [sessionId, clearCheckoutParams, fetchSubscription]);
 
-  /* ================= HANDLE CANCELLED PAYMENT ================= */
+  /* ================= CANCELLED PAYMENT ================= */
 
   useEffect(() => {
     if (!isCanceled) return;
@@ -365,31 +363,15 @@ function SubscriptionContent() {
     clearCheckoutParams();
   }, [isCanceled, clearCheckoutParams]);
 
-  /* ================= IN-APP PAYMENT ================= */
-
-  const handleUpgrade = (planId: PlanId) => {
-    if (planId === "free" || upgrading !== null) return;
-
-    router.push(`/payment?plan=${planId}`);
-  };
-
   /* ================= STRIPE CHECKOUT ================= */
 
   const handleStripeCheckout = async (planId: PlanId) => {
     if (planId === "free" || upgrading !== null) return;
 
-    // Only accept valid premium plan IDs.
-    if (planId !== "premium_monthly" && planId !== "premium_yearly") {
-      toast.error("Please select a valid premium plan.");
-      return;
-    }
+    setUpgrading(planId);
 
     try {
-      setUpgrading(planId);
-
-      // IMPORTANT:
-      // Backend expects { planId }, NOT { plan }.
-      const data = await apiRequest<CheckoutResponse>(
+      const response = await apiRequest<CheckoutResponse>(
         "/api/v1/subscription/create-checkout-session",
         {
           method: "POST",
@@ -402,27 +384,21 @@ function SubscriptionContent() {
         },
       );
 
-      if (!data.success) {
+      if (!response.success || !response.checkoutUrl) {
         throw new Error(
-          data.message || "Unable to create Stripe Checkout session.",
+          response.message || "Unable to create Stripe checkout session.",
         );
       }
 
-      // IMPORTANT:
-      // Backend returns checkoutUrl, NOT url.
-      if (!data.checkoutUrl) {
-        throw new Error("Stripe did not return a valid checkout URL.");
-      }
-
-      toast.success("Redirecting to secure Stripe Checkout...");
-
-      // Redirect to Stripe hosted Checkout.
-      window.location.assign(data.checkoutUrl);
+      // Redirect the customer to Stripe Hosted Checkout.
+      window.location.assign(response.checkoutUrl);
     } catch (error) {
+      console.error("Stripe checkout error:", error);
+
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unable to initiate Stripe payment.",
+          : "Something went wrong. Please try again.",
       );
 
       setUpgrading(null);
@@ -432,6 +408,8 @@ function SubscriptionContent() {
   /* ================= DOWNGRADE ================= */
 
   const handleDowngrade = async () => {
+    if (downgrading) return;
+
     const confirmed = window.confirm(
       "Switch back to the Free plan? Only 3 active services and 3 booking events will be allowed.",
     );
@@ -485,14 +463,13 @@ function SubscriptionContent() {
   /* ================= CURRENT SUBSCRIPTION ================= */
 
   const currentPlan = subscription?.plan || "free";
-
   const isPremiumActive = subscription?.isPremium === true;
 
   /* ================= UI ================= */
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
 
       <div className="flex flex-col justify-between gap-4 border-b border-[#e9e1d8] pb-5 sm:flex-row sm:items-center">
         <div>
@@ -503,7 +480,6 @@ function SubscriptionContent() {
 
             <span className="flex items-center gap-1 rounded-full bg-gold/15 px-2.5 py-1 text-[10px] font-semibold text-foreground">
               <Crown className="size-3 text-gold" />
-
               {isPremiumActive ? "Premium Active" : "Secure Card Payment Ready"}
             </span>
           </div>
@@ -530,7 +506,7 @@ function SubscriptionContent() {
         </Button>
       </div>
 
-      {/* ================= ACTIVE PLAN STATUS ================= */}
+      {/* ACTIVE PLAN STATUS */}
 
       <section className="relative overflow-hidden rounded-xl border border-[#eadbb5] bg-gradient-to-r from-[#fffdf7] via-white to-[#faf8f1] p-5 shadow-sm sm:p-6">
         <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-gold/10 blur-3xl" />
@@ -543,20 +519,22 @@ function SubscriptionContent() {
 
             <h2 className="mt-2 flex items-center gap-2 font-heading text-2xl font-bold">
               <Crown
-                className={`size-5 ${
-                  isPremiumActive ? "text-gold" : "text-muted-foreground"
-                }`}
+                className={cn(
+                  "size-5",
+                  isPremiumActive ? "text-gold" : "text-muted-foreground",
+                )}
               />
               {subscription?.planName || "Free"} Plan
             </h2>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-semibold",
                   isPremiumActive
                     ? "bg-emerald-100 text-emerald-800"
-                    : "bg-primary/10 text-primary"
-                }`}
+                    : "bg-primary/10 text-primary",
+                )}
               >
                 {isPremiumActive ? "Active Premium Member" : "Free Tier"}
               </span>
@@ -594,37 +572,35 @@ function SubscriptionContent() {
         </div>
       </section>
 
-      {/* ================= PLANS ================= */}
+      {/* SUBSCRIPTION PLANS */}
 
       <section>
-        <div className="mb-8">
+        <div className="mb-6">
           <h2 className="font-heading text-xl font-bold">Choose Your Plan</h2>
 
           <p className="mt-1 text-xs text-muted-foreground">
-            Pay securely with your credit/debit card on WedPlan&apos;s own
-            checkout page or use Stripe&apos;s hosted Checkout experience.
+            Select your preferred plan and continue to Stripe&apos;s secure
+            hosted checkout.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-6 pt-2 xl:grid-cols-3">
           {plans.map((plan) => {
             const isCurrent = currentPlan === plan.id;
-
             const isPremiumPlan = plan.id !== "free";
-
             const isRecommended = plan.id === "premium_monthly";
-
             const isDark = isRecommended;
+            const isProcessing = upgrading === plan.id;
 
             return (
               <div
                 key={plan.id}
                 className={cn(
-                  "relative flex flex-col rounded-3xl p-6 transition-all duration-300 sm:p-7",
+                  "relative flex flex-col rounded-3xl p-5 transition-all duration-300 sm:p-6",
                   isDark
-                    ? "border border-gold/40 bg-[linear-gradient(165deg,#16402f_0%,#0f2e23_55%,#0a231b_100%)] pt-9 text-white shadow-[0_18px_45px_-20px_rgba(10,35,27,0.65)] hover:-translate-y-1.5 hover:shadow-[0_28px_55px_-20px_rgba(201,162,74,0.45)]"
+                    ? "border border-gold/40 bg-[linear-gradient(165deg,#16402f_0%,#0f2e23_55%,#0a231b_100%)] pt-9 text-white shadow-[0_18px_45px_-20px_rgba(10,35,27,0.65)] hover:-translate-y-1 hover:shadow-[0_28px_55px_-20px_rgba(201,162,74,0.45)]"
                     : isCurrent
-                      ? "border border-primary/40 bg-white ring-1 ring-primary/20 shadow-sm hover:-translate-y-1 hover:shadow-md"
+                      ? "border border-primary/40 bg-white shadow-sm ring-1 ring-primary/20 hover:-translate-y-1 hover:shadow-md"
                       : "border border-[#e9e1d8] bg-white shadow-sm hover:-translate-y-1 hover:shadow-md",
                 )}
               >
@@ -639,7 +615,7 @@ function SubscriptionContent() {
                   />
                 )}
 
-                {/* RIBBON */}
+                {/* POPULAR RIBBON */}
 
                 {isRecommended && (
                   <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#f4e0a8] via-[#e3c076] to-[#c9a04a] px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#123528] shadow-[0_6px_16px_rgba(201,162,74,0.45)]">
@@ -684,7 +660,7 @@ function SubscriptionContent() {
 
                 <p
                   className={cn(
-                    "mt-4 min-h-10 text-sm leading-6",
+                    "mt-3 min-h-0 text-sm leading-5",
                     isDark ? "text-white/60" : "text-muted-foreground",
                   )}
                 >
@@ -695,7 +671,7 @@ function SubscriptionContent() {
 
                 <div
                   className={cn(
-                    "my-6 border-t pt-6",
+                    "my-4 border-t pt-4",
                     isDark ? "border-white/10" : "border-[#e9e1d8]",
                   )}
                 >
@@ -742,7 +718,7 @@ function SubscriptionContent() {
                     What&apos;s included
                   </p>
 
-                  <ul className="mt-4 space-y-3.5">
+                  <ul className="mt-3 space-y-2.5">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3">
                         <span
@@ -769,12 +745,13 @@ function SubscriptionContent() {
                   </ul>
                 </div>
 
-                {/* ACTION BUTTONS */}
+                {/* PAYMENT ACTION */}
 
-                <div className="mt-8 space-y-2.5">
+                <div className="mt-6 space-y-2">
                   {isCurrent ? (
                     <>
                       <button
+                        type="button"
                         disabled
                         className={cn(
                           "flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border px-4 py-3.5 text-sm font-semibold",
@@ -789,6 +766,7 @@ function SubscriptionContent() {
 
                       {isPremiumPlan && (
                         <button
+                          type="button"
                           onClick={() => void handleDowngrade()}
                           disabled={downgrading}
                           className={cn(
@@ -807,10 +785,9 @@ function SubscriptionContent() {
                     </>
                   ) : isPremiumPlan ? (
                     <>
-                      {/* PRIMARY PAYMENT */}
-
                       <button
-                        onClick={() => handleUpgrade(plan.id)}
+                        type="button"
+                        onClick={() => void handleStripeCheckout(plan.id)}
                         disabled={upgrading !== null}
                         className={cn(
                           "group flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60",
@@ -819,38 +796,19 @@ function SubscriptionContent() {
                             : "bg-primary text-primary-foreground shadow-[0_8px_22px_-10px_rgba(17,87,64,0.8)] hover:bg-primary/90",
                         )}
                       >
-                        <CreditCard className="size-4" />
-                        Pay ${plan.price}
-                        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                      </button>
-
-                      {/* STRIPE CHECKOUT */}
-
-                      <button
-                        type="button"
-                        onClick={() => void handleStripeCheckout(plan.id)}
-                        disabled={upgrading !== null}
-                        className={cn(
-                          "flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                          isDark
-                            ? "border-white/20 bg-white/5 text-white/75 hover:border-gold/50 hover:text-gold"
-                            : "border-[#e9e1d8] bg-white text-muted-foreground hover:border-primary/40 hover:text-primary",
-                        )}
-                      >
-                        {upgrading === plan.id ? (
+                        {isProcessing ? (
                           <>
                             <Loader2 className="size-4 animate-spin" />
                             Connecting to Stripe...
                           </>
                         ) : (
                           <>
-                            <Lock className="size-3.5" />
-                            Use Stripe Checkout instead
+                            <CreditCard className="size-4" />
+                            Continue to Payment
+                            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
                           </>
                         )}
                       </button>
-
-                      {/* SECURITY TEXT */}
 
                       <p
                         className={cn(
@@ -858,11 +816,13 @@ function SubscriptionContent() {
                           isDark ? "text-white/40" : "text-muted-foreground",
                         )}
                       >
-                        Secured by Stripe · 256-bit SSL encryption
+                        <Lock className="mr-1 inline size-3" />
+                        Secure checkout powered by Stripe
                       </p>
                     </>
                   ) : (
                     <button
+                      type="button"
                       disabled
                       className="w-full cursor-not-allowed rounded-xl border border-[#e9e1d8] bg-[#faf9f6] px-4 py-3.5 text-sm font-semibold text-muted-foreground"
                     >
@@ -876,7 +836,7 @@ function SubscriptionContent() {
         </div>
       </section>
 
-      {/* ================= SECURITY NOTE ================= */}
+      {/* SECURITY NOTE */}
 
       <div className="flex flex-col gap-4 rounded-2xl border border-[#eadbb5] bg-gradient-to-r from-[#fffdf7] via-white to-[#faf8f1] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
@@ -890,9 +850,9 @@ function SubscriptionContent() {
             </p>
 
             <p className="mt-0.5 max-w-xl text-xs leading-5 text-muted-foreground">
-              Your card details never touch our servers. All major credit and
-              debit cards are accepted. Free plan permits up to 3 services and 3
-              booking events; Premium grants unlimited access.
+              Your card details never touch our servers. Payment information is
+              securely handled by Stripe. Free plan permits up to 3 services and
+              3 booking events; Premium grants unlimited access.
             </p>
           </div>
         </div>
