@@ -13,20 +13,19 @@ import PageTransition from "@/components/animations/page-transition";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-  // Geist Mono is only used on a couple of admin screens, so preloading it
-  // on every page made Chrome report "preloaded but not used" warnings.
-  // It still loads on demand wherever `font-mono` is rendered.
   preload: false,
 });
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -56,9 +55,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           >
             <Navbar />
           </Suspense>
+
           <main className="flex-1">
             <PageTransition>{children}</PageTransition>
           </main>
+
           <Footer />
           <Toaster position="top-right" />
         </AuthProvider>
