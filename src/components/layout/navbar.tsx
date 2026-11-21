@@ -34,8 +34,20 @@ import { siteConfig } from "@/config/site";
 import { cn } from "cn";
 
 const navLinks = [
-  { href: siteConfig.routes.home, label: "Home" },
-  { href: siteConfig.routes.services, label: "Browse Services" },
+  { href: "/#home", label: "Home", section: "home" },
+  { href: "/#services", label: "Services", section: "services" },
+  { href: "/#categories", label: "Categories", section: "categories" },
+  { href: "/#about", label: "About", section: "about" },
+  {
+    href: "/#how-it-works",
+    label: "How It Works",
+    section: "how-it-works",
+  },
+  {
+    href: "/#testimonials",
+    label: "Testimonials",
+    section: "testimonials",
+  },
 ] as const;
 
 function getInitials(name: string) {
@@ -74,9 +86,11 @@ function UserAvatar({ size = "sm" }: { size?: "sm" | "default" }) {
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+
   const { user, isAuthenticated, signOut, role } = useAuth();
 
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [activeSection, setActiveSection] = React.useState("home");
 
   const dashboardHref =
     role === "admin"
@@ -85,46 +99,87 @@ export function Navbar() {
         ? siteConfig.dashboards.vendor
         : siteConfig.dashboards.customer;
 
-  // Logout with toast notification
+  // Detect the currently visible homepage section.
+  React.useEffect(() => {
+    if (pathname !== "/") return;
+
+    const sections = navLinks
+      .map((link) => document.getElementById(link.section))
+      .filter((section): section is HTMLElement => section !== null);
+
+    if (!sections.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleSections = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+        if (visibleSections.length > 0) {
+          setActiveSection(visibleSections[0].target.id);
+        }
+      },
+      {
+        rootMargin: "-20% 0px -65% 0px",
+        threshold: [0, 0.1, 0.25, 0.5],
+      },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
+  }, [pathname]);
+
+  // Logout with toast notification.
   const handleSignOut = async () => {
     setMobileOpen(false);
 
     try {
       await signOut();
-
       toast.success("Logged out successfully!");
     } catch (error) {
       console.error("Logout error:", error);
-
       toast.error("Logout failed. Please try again.");
     }
+  };
+
+  // Handle navigation click.
+  const handleNavClick = (section: string) => {
+    setMobileOpen(false);
+
+    setActiveSection(section);
   };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 w-full max-w-345 items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
-        {/* Logo: Navigate to Home */}
+        {/* Logo: Navigate to Hero Section */}
         <Link
-          href={siteConfig.routes.home}
+          href="/#home"
           aria-label="Go to homepage"
           className="shrink-0"
+          onClick={() => {
+            setActiveSection("home");
+            setMobileOpen(false);
+          }}
         >
           <Logo />
         </Link>
 
-        {/* Desktop: public + authenticated nav links */}
+        {/* Desktop Navigation */}
         <nav
           aria-label="Main navigation"
-          className="hidden items-center gap-1 md:flex"
+          className="hidden items-center gap-1 xl:flex"
         >
           {navLinks.map((link) => {
-            const isActive = pathname === link.href;
+            const isActive = pathname === "/" && activeSection === link.section;
 
             return (
               <Link
-                key={link.href}
+                key={link.section}
                 href={link.href}
                 aria-current={isActive ? "page" : undefined}
+                onClick={() => handleNavClick(link.section)}
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                   isActive
@@ -138,7 +193,7 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Desktop: auth actions */}
+        {/* Desktop Authentication */}
         <div className="hidden items-center gap-2 md:flex">
           {isAuthenticated && user ? (
             <DropdownMenu>
@@ -152,9 +207,11 @@ export function Navbar() {
                 }
               >
                 <UserAvatar />
+
                 <span className="max-w-32 truncate text-sm font-medium">
                   {user.name}
                 </span>
+
                 <ChevronDown
                   className="size-4 text-muted-foreground"
                   aria-hidden="true"
@@ -222,7 +279,7 @@ export function Navbar() {
           )}
         </div>
 
-        {/* Mobile: hamburger + sheet menu */}
+        {/* Mobile Navigation */}
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger
             render={
@@ -244,21 +301,23 @@ export function Navbar() {
               </SheetTitle>
             </SheetHeader>
 
+            {/* Mobile Navigation Links */}
             <nav
               aria-label="Mobile navigation"
               className="flex flex-col gap-1 px-4"
             >
               {navLinks.map((link) => {
-                const isActive = pathname === link.href;
+                const isActive =
+                  pathname === "/" && activeSection === link.section;
 
                 return (
                   <Link
-                    key={link.href}
+                    key={link.section}
                     href={link.href}
                     aria-current={isActive ? "page" : undefined}
-                    onClick={() => setMobileOpen(false)}
+                    onClick={() => handleNavClick(link.section)}
                     className={cn(
-                      "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       isActive
                         ? "bg-muted text-foreground"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -270,6 +329,7 @@ export function Navbar() {
               })}
             </nav>
 
+            {/* Mobile Authentication */}
             <div className="mt-auto flex flex-col gap-2 border-t border-border p-4">
               {isAuthenticated && user ? (
                 <>
@@ -305,6 +365,7 @@ export function Navbar() {
                       />
                     }
                   >
+                    <LayoutDashboard className="mr-2 size-4" />
                     Dashboard
                   </Button>
 
@@ -318,6 +379,7 @@ export function Navbar() {
                       />
                     }
                   >
+                    <Settings className="mr-2 size-4" />
                     Profile Settings
                   </Button>
 
@@ -326,7 +388,7 @@ export function Navbar() {
                     className="w-full"
                     onClick={handleSignOut}
                   >
-                    <LogOut aria-hidden="true" />
+                    <LogOut className="mr-2 size-4" />
                     Logout
                   </Button>
                 </>

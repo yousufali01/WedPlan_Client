@@ -247,68 +247,73 @@ export default function Home() {
 
   return (
     <main className="overflow-hidden bg-[#FAF8F2] text-[#183D2D]">
-      {/* ================= HERO ================= */}
+      {/* ================= PREMIUM HERO ================= */}
 
       <section
         id="home"
-        className="relative flex min-h-[680px] items-center overflow-hidden sm:min-h-[760px] lg:min-h-[820px]"
+        className="relative isolate flex min-h-[700px] items-center overflow-hidden bg-[#102F23] sm:min-h-[760px] lg:min-h-[820px] xl:min-h-[850px]"
       >
-        {/* Background */}
+        {/* Background Video */}
+        <div className="absolute inset-0 -z-20 overflow-hidden">
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster="/images/Banner.jpg"
+            className="absolute inset-0 h-full w-full scale-[1.03] object-cover object-center"
+          >
+            <source src="/videos/wedding-hero.mp4" type="video/mp4" />
+          </video>
+        </div>
 
-        <div
-          className="absolute inset-0 scale-105 bg-cover bg-center"
-          style={{
-            backgroundImage: "url('/images/Banner.jpg')",
-          }}
-        />
+        {/* Luxury Image Overlay */}
+        <div className="absolute inset-0 -z-10 bg-[#102F23]/65" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#102F23]/95 via-[#102F23]/80 to-[#102F23]/25" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#102F23]/90 via-transparent to-[#102F23]/30" />
 
-        {/* Cinematic overlay */}
+        {/* Decorative Gold Circles */}
+        <div className="pointer-events-none absolute -right-44 top-1/2 hidden h-[700px] w-[700px] -translate-y-1/2 rounded-full border border-[#D5B66D]/10 lg:block" />
+        <div className="pointer-events-none absolute -right-28 top-1/2 hidden h-[540px] w-[540px] -translate-y-1/2 rounded-full border border-[#D5B66D]/15 lg:block" />
+        <div className="pointer-events-none absolute -right-12 top-1/2 hidden h-[380px] w-[380px] -translate-y-1/2 rounded-full border border-[#D5B66D]/20 lg:block" />
 
-        <div className="absolute inset-0 bg-[#102F23]/75" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#102F23]/95 via-[#183D2D]/80 to-[#183D2D]/25" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#102F23]/50 via-transparent to-[#102F23]/20" />
-
-        {/* Decorative elements */}
-
-        <div className="pointer-events-none absolute right-[-120px] top-[15%] hidden h-[550px] w-[550px] rounded-full border border-[#D5B66D]/15 lg:block" />
-        <div className="pointer-events-none absolute right-[-65px] top-[21%] hidden h-[440px] w-[440px] rounded-full border border-[#D5B66D]/20 lg:block" />
-        <div className="pointer-events-none absolute right-[-15px] top-[28%] hidden h-[330px] w-[330px] rounded-full border border-[#D5B66D]/15 lg:block" />
-
-        <div className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-20 pt-28 sm:px-8 sm:pt-32 lg:px-12">
-          <div className="max-w-3xl">
+        {/* Main Content */}
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-24 pt-32 sm:px-8 sm:pb-28 sm:pt-36 lg:px-12">
+          <div className="max-w-4xl">
             {/* Eyebrow */}
-
-            <div className="hero-reveal flex items-center gap-3">
+            <div className="hero-reveal flex items-center gap-4">
               <span className="h-px w-12 bg-[#D5B66D]" />
 
-              <span className="text-[10px] font-medium uppercase tracking-[3px] text-[#E5C77E] sm:text-xs sm:tracking-[4px]">
+              <span className="text-[10px] font-semibold uppercase tracking-[4px] text-[#E5C77E] sm:text-xs sm:tracking-[5px]">
                 {siteConfig.tagline}
               </span>
+
+              <span className="h-px w-12 bg-[#D5B66D]/50" />
             </div>
 
             {/* Heading */}
-
-            <h1 className="hero-reveal hero-delay-1 mt-7 font-serif text-[43px] font-medium leading-[1.12] tracking-[-1px] text-white sm:text-6xl md:text-7xl lg:text-[88px]">
-              Your Love Story,
+            <h1 className="hero-reveal hero-delay-1 mt-9 max-w-4xl font-serif text-[46px] font-medium leading-[1.08] tracking-[-1.5px] text-white sm:text-6xl md:text-7xl lg:text-[90px]">
+              Every Love Story
               <br />
-              <span className="italic text-[#D5B66D]">Beautifully</span>{" "}
-              Planned.
+              Deserves a{" "}
+              <span className="italic text-[#D5B66D]">Beautiful</span>
+              <br />
+              Beginning.
             </h1>
 
             {/* Description */}
-
-            <p className="hero-reveal hero-delay-2 mt-7 max-w-xl text-sm leading-7 text-white/70 sm:text-base sm:leading-8">
-              From the first little detail to the last dance, discover trusted
-              wedding professionals and create a celebration that feels uniquely
-              yours.
+            <p className="hero-reveal hero-delay-2 mt-8 max-w-[530px] text-sm leading-8 text-white/75 sm:text-base sm:leading-9">
+              From finding the perfect venue to the smallest finishing touches,
+              bring your wedding vision to life with trusted professionals and
+              thoughtfully curated services.
             </p>
 
-            {/* Buttons */}
-
-            <div className="hero-reveal hero-delay-3 mt-9 flex flex-wrap gap-3 sm:gap-4">
+            {/* CTA Buttons */}
+            <div className="hero-reveal hero-delay-3 mt-10 flex flex-wrap items-center gap-4">
               <Link
                 href={siteConfig.routes.services}
-                className="group inline-flex items-center gap-3 rounded-full bg-[#D5B66D] px-6 py-3.5 text-xs font-semibold text-[#183D2D] transition duration-300 hover:bg-[#E8CD91] sm:px-8 sm:py-4 sm:text-sm"
+                className="group inline-flex items-center gap-4 rounded-full bg-[#D5B66D] px-7 py-4 text-xs font-semibold tracking-wide text-[#183D2D] shadow-[0_8px_30px_rgba(213,182,109,0.15)] transition-all duration-300 hover:-translate-y-1 hover:bg-[#E8CD91] hover:shadow-[0_12px_35px_rgba(213,182,109,0.25)] sm:px-9 sm:py-[18px] sm:text-sm"
               >
                 Explore Wedding Services
                 <ArrowRight
@@ -318,49 +323,62 @@ export default function Home() {
               </Link>
 
               <Link
-                href={siteConfig.routes.signUp}
-                className="inline-flex items-center gap-3 rounded-full border border-white/35 px-6 py-3.5 text-xs font-medium text-white transition duration-300 hover:border-[#D5B66D] hover:bg-white/5 hover:text-[#D5B66D] sm:px-8 sm:py-4 sm:text-sm"
+                href={siteConfig.routes.services}
+                className="group inline-flex items-center gap-3 rounded-full border border-white/35 bg-white/[0.04] px-7 py-4 text-xs font-medium tracking-wide text-white backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#D5B66D] hover:bg-[#D5B66D]/10 hover:text-[#E5C77E] sm:px-9 sm:py-[18px] sm:text-sm"
               >
                 Start Your Journey
+                <ArrowRight
+                  size={16}
+                  className="transition-transform duration-300 group-hover:translate-x-1"
+                />
               </Link>
             </div>
 
-            {/* Trust indicators */}
+            {/* Trust Indicators */}
+            <div className="hero-reveal hero-delay-4 mt-16 flex flex-wrap items-center gap-x-9 gap-y-5 border-t border-white/15 pt-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D5B66D]/30 bg-[#D5B66D]/10">
+                  <ShieldCheck size={17} className="text-[#D5B66D]" />
+                </div>
 
-            <div className="hero-reveal hero-delay-4 mt-12 flex flex-wrap items-center gap-x-7 gap-y-4 border-t border-white/15 pt-7">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={17} className="text-[#D5B66D]" />
-                <span className="text-xs text-white/70">
+                <span className="text-xs font-medium tracking-wide text-white/75">
                   Trusted Professionals
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Heart size={16} className="text-[#D5B66D]" />
-                <span className="text-xs text-white/70">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D5B66D]/30 bg-[#D5B66D]/10">
+                  <Heart size={17} className="text-[#D5B66D]" />
+                </div>
+
+                <span className="text-xs font-medium tracking-wide text-white/75">
                   Thoughtful Planning
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-[#D5B66D]" />
-                <span className="text-xs text-white/70">
-                  Your Dream Celebration
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D5B66D]/30 bg-[#D5B66D]/10">
+                  <Sparkles size={17} className="text-[#D5B66D]" />
+                </div>
+
+                <span className="text-xs font-medium tracking-wide text-white/75">
+                  Unforgettable Moments
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom decorative line */}
-
+        {/* Bottom Gold Accent */}
         <div className="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-[#D5B66D]/60 to-transparent" />
 
-        {/* Scroll hint */}
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-9 right-12 hidden flex-col items-center gap-3 lg:flex">
+          <span className="text-[9px] font-medium uppercase tracking-[4px] text-white/50">
+            Scroll to Discover
+          </span>
 
-        <div className="absolute bottom-8 right-8 hidden flex-col items-center gap-3 text-white/50 lg:flex">
-          <span className="text-[9px] uppercase tracking-[3px]">Scroll</span>
-          <span className="h-10 w-px bg-gradient-to-b from-[#D5B66D] to-transparent" />
+          <span className="h-12 w-px bg-gradient-to-b from-[#D5B66D] to-transparent" />
         </div>
       </section>
 
@@ -392,7 +410,7 @@ export default function Home() {
       </section>
       {/* ================= FEATURED SERVICES ================= */}
 
-      <section className="px-5 py-20 sm:px-8 md:py-24 lg:px-12">
+      <section id="services" className="px-5 py-20 sm:px-8 md:py-24 lg:px-12">
         <div className="mx-auto max-w-7xl">
           {/* Section heading */}
 
@@ -611,7 +629,10 @@ export default function Home() {
 
       {/* ================= CATEGORIES ================= */}
 
-      <section className="relative overflow-hidden bg-[#183D2D] px-5 py-20 text-white sm:px-8 md:py-24 lg:px-12">
+      <section
+        id="categories"
+        className="relative overflow-hidden bg-[#183D2D] px-5 py-20 text-white sm:px-8 md:py-24 lg:px-12"
+      >
         {/* Subtle background detail */}
 
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full border border-[#D5B66D]/10" />
@@ -855,7 +876,10 @@ export default function Home() {
 
       {/* ================= HOW IT WORKS ================= */}
 
-      <section className="border-y border-[#E8E1D3] bg-[#F1EBDD] px-5 py-20 sm:px-8 md:py-24 lg:px-12">
+      <section
+        id="how-it-works"
+        className="border-y border-[#E8E1D3] bg-[#F1EBDD] px-5 py-20 sm:px-8 md:py-24 lg:px-12"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <div className="mb-4 flex items-center justify-center gap-3">
@@ -990,7 +1014,10 @@ export default function Home() {
       </section>
       {/* ================= TESTIMONIALS ================= */}
 
-      <section className="px-5 py-20 sm:px-8 md:py-24 lg:px-12">
+      <section
+        id="testimonials"
+        className="px-5 py-20 sm:px-8 md:py-24 lg:px-12"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <div className="mb-4 flex items-center justify-center gap-3">

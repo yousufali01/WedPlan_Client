@@ -339,7 +339,7 @@ export function SignUpForm() {
 
       const { error } = await authClient.signIn.social({
         provider: "google",
-        callbackURL: googleCallbackURL,
+        callbackURL: googleCallbackURL ||`${window.location.origin}/dashboard`,
         newUserCallbackURL: googleCallbackURL,
       });
 
