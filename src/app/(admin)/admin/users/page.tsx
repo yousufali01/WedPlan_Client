@@ -43,67 +43,86 @@ type UserRecord = {
   createdAt?: string;
 };
 
-function subscribeToNow(onStoreChange: () => void) {
-  const interval = window.setInterval(onStoreChange, 10_000);
-  return () => window.clearInterval(interval);
-}
-
-function getNowSnapshot() {
-  return Date.now();
-}
-
-function getNowServerSnapshot() {
-  return 0;
-}
-
 export default function AdminUsersPage() {
-  const now = React.useSyncExternalStore(
-    subscribeToNow,
-    getNowSnapshot,
-    getNowServerSnapshot
-  );
+  // Stable initial timestamp; refreshes every 10 seconds.
+  const [now, setNow] = React.useState(() => Date.now());
+
   const { user: currentAdmin } = useAuth();
+
   const [users, setUsers] = React.useState<UserRecord[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [roleFilter, setRoleFilter] = React.useState<string>("all");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
-  const [actionInProgress, setActionInProgress] = React.useState<string | null>(null);
+  const [actionInProgress, setActionInProgress] = React.useState<string | null>(
+    null,
+  );
 
   // Dialog state for block confirmation
-  const [pendingBlockUser, setPendingBlockUser] = React.useState<UserRecord | null>(null);
+  const [pendingBlockUser, setPendingBlockUser] =
+    React.useState<UserRecord | null>(null);
   const [blockReason, setBlockReason] = React.useState<string>("");
 
   // Dialog state for unblock confirmation
-  const [pendingUnblockUser, setPendingUnblockUser] = React.useState<UserRecord | null>(null);
+  const [pendingUnblockUser, setPendingUnblockUser] =
+    React.useState<UserRecord | null>(null);
+
+  // Update current time every 10 seconds.
+  React.useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 10_000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  // ================= FETCH USERS =================
 
   const fetchUsers = React.useCallback(async () => {
     setIsLoading(true);
+
     try {
-      const res = await apiRequest<{ users: UserRecord[]; total: number }>(
-        "/api/v1/admin/users?limit=100"
-      );
-      if (res.users) {
+      const res = await apiRequest<{
+        users: UserRecord[];
+        total: number;
+      }>("/api/v1/admin/users?limit=100");
+
+      if (Array.isArray(res?.users)) {
         setUsers(res.users);
+      } else {
+        toast.error("Invalid users response from server.");
       }
     } catch (err) {
       toast.error("Failed to fetch users", {
-        description: err instanceof Error ? err.message : "Please check server connection.",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Please check server connection.",
       });
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  // Initial data load
   React.useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       void fetchUsers();
     }, 0);
-    return () => clearTimeout(timer);
+
+    return () => window.clearTimeout(timer);
   }, [fetchUsers]);
 
-  const handleRoleChange = async (userId: string, newRole: "customer" | "vendor" | "admin") => {
+  // ================= ROLE CHANGE =================
+
+  const handleRoleChange = async (
+    userId: string,
+    newRole: "customer" | "vendor" | "admin",
+  ) => {
+    if (actionInProgress) return;
+
     setActionInProgress(userId);
+
     try {
       await apiRequest(`/api/v1/admin/users/${userId}/role`, {
         method: "PATCH",
@@ -111,8 +130,9 @@ export default function AdminUsersPage() {
       });
 
       toast.success(`User role changed to ${newRole}`);
+
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)),
       );
     } catch (err) {
       toast.error("Failed to update role", {
@@ -123,8 +143,13 @@ export default function AdminUsersPage() {
     }
   };
 
+  // ================= VENDOR APPROVAL =================
+
   const handleVendorApproval = async (userId: string, approved: boolean) => {
+    if (actionInProgress) return;
+
     setActionInProgress(userId);
+
     try {
       await apiRequest(`/api/v1/admin/vendors/${userId}/approval`, {
         method: "PATCH",
@@ -132,11 +157,15 @@ export default function AdminUsersPage() {
       });
 
       toast.success(
-        approved ? "Vendor approved successfully!" : "Vendor application rejected."
+        approved
+          ? "Vendor approved successfully!"
+          : "Vendor application rejected.",
       );
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, vendorApproved: approved } : u))
+        prev.map((u) =>
+          u.id === userId ? { ...u, vendorApproved: approved } : u,
+        ),
       );
     } catch (err) {
       toast.error("Approval action failed", {
@@ -147,9 +176,14 @@ export default function AdminUsersPage() {
     }
   };
 
+  // ================= BLOCK USER =================
+
   const handleConfirmBlock = async () => {
-    if (!pendingBlockUser) return;
+    if (!pendingBlockUser || actionInProgress) return;
+
     const targetId = pendingBlockUser.id;
+    const targetName = pendingBlockUser.name;
+
     setActionInProgress(targetId);
 
     try {
@@ -160,22 +194,30 @@ export default function AdminUsersPage() {
         }),
       });
 
-      toast.success(`User "${pendingBlockUser.name}" has been blocked.`);
+      toast.success(`User "${targetName}" has been blocked.`);
+
       setPendingBlockUser(null);
       setBlockReason("");
+
       await fetchUsers();
     } catch (err) {
       toast.error("Failed to block user", {
-        description: err instanceof Error ? err.message : "Action could not be completed.",
+        description:
+          err instanceof Error ? err.message : "Action could not be completed.",
       });
     } finally {
       setActionInProgress(null);
     }
   };
 
+  // ================= UNBLOCK USER =================
+
   const handleConfirmUnblock = async () => {
-    if (!pendingUnblockUser) return;
+    if (!pendingUnblockUser || actionInProgress) return;
+
     const targetId = pendingUnblockUser.id;
+    const targetName = pendingUnblockUser.name;
+
     setActionInProgress(targetId);
 
     try {
@@ -183,44 +225,62 @@ export default function AdminUsersPage() {
         method: "POST",
       });
 
-      toast.success(`User "${pendingUnblockUser.name}" has been unblocked.`);
+      toast.success(`User "${targetName}" has been unblocked.`);
+
       setPendingUnblockUser(null);
+
       await fetchUsers();
     } catch (err) {
       toast.error("Failed to unblock user", {
-        description: err instanceof Error ? err.message : "Action could not be completed.",
+        description:
+          err instanceof Error ? err.message : "Action could not be completed.",
       });
     } finally {
       setActionInProgress(null);
     }
   };
 
-  const isUserEffectivelyBlocked = React.useCallback((u: UserRecord) => {
-    if (!u.banned) return false;
-    if (!u.banExpires) return true;
-    const exp = new Date(u.banExpires).getTime();
-    if (Number.isNaN(exp)) return true;
-    return exp > (now ?? 0);
-  }, [now]);
+  // ================= BLOCK STATUS =================
+
+  const isUserEffectivelyBlocked = React.useCallback(
+    (u: UserRecord) => {
+      if (!u.banned) return false;
+      if (!u.banExpires) return true;
+
+      const exp = new Date(u.banExpires).getTime();
+
+      if (Number.isNaN(exp)) return true;
+
+      return exp > now;
+    },
+    [now],
+  );
+
+  // ================= FILTER USERS =================
 
   const filteredUsers = React.useMemo(() => {
     return users.filter((u) => {
       const matchesRole = roleFilter === "all" || u.role === roleFilter;
+
       const isBlocked = isUserEffectivelyBlocked(u);
+
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "blocked" && isBlocked) ||
         (statusFilter === "active" && !isBlocked);
 
       const q = searchQuery.toLowerCase().trim();
+
       const matchesSearch =
         !q ||
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q);
+        (u.name || "").toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q);
 
       return matchesRole && matchesStatus && matchesSearch;
     });
   }, [users, roleFilter, statusFilter, searchQuery, isUserEffectivelyBlocked]);
+
+  // ================= RENDER =================
 
   return (
     <div className="flex flex-col gap-6">
@@ -231,6 +291,7 @@ export default function AdminUsersPage() {
             <span className="text-xs font-semibold uppercase tracking-widest text-primary">
               User Management
             </span>
+
             <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
               {users.length} Total Registered
             </span>
@@ -239,8 +300,10 @@ export default function AdminUsersPage() {
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
             Manage System Users
           </h1>
+
           <p className="mt-1 text-sm text-muted-foreground">
-            Promote or demote user roles, approve verified vendor onboarding, and enforce platform security with account block/unblock controls.
+            Promote or demote user roles, approve verified vendor onboarding,
+            and enforce platform security with account block/unblock controls.
           </p>
         </div>
 
@@ -249,9 +312,11 @@ export default function AdminUsersPage() {
           size="sm"
           onClick={() => void fetchUsers()}
           disabled={isLoading}
-          className="gap-2 border-[#e9e1d8] bg-white w-fit cursor-pointer"
+          className="w-fit cursor-pointer gap-2 border-[#e9e1d8] bg-white"
         >
-          <RefreshCw className={`size-3.5 ${isLoading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`size-3.5 ${isLoading ? "animate-spin" : ""}`}
+          />
           Refresh
         </Button>
       </div>
@@ -260,6 +325,7 @@ export default function AdminUsersPage() {
       <div className="flex flex-col gap-3 rounded-2xl border border-[#e9e1d8] bg-white p-3.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+
           <input
             type="text"
             placeholder="Search by user name or email..."
@@ -269,13 +335,16 @@ export default function AdminUsersPage() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Status:</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              Status:
+            </span>
+
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-[#e6dfd5] bg-white px-3 py-2 text-xs font-medium outline-none cursor-pointer focus:border-primary"
+              className="cursor-pointer rounded-xl border border-[#e6dfd5] bg-white px-3 py-2 text-xs font-medium outline-none focus:border-primary"
             >
               <option value="all">All Statuses</option>
               <option value="active">Active</option>
@@ -284,11 +353,14 @@ export default function AdminUsersPage() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Role:</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              Role:
+            </span>
+
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="rounded-xl border border-[#e6dfd5] bg-white px-3 py-2 text-xs font-medium outline-none cursor-pointer focus:border-primary"
+              className="cursor-pointer rounded-xl border border-[#e6dfd5] bg-white px-3 py-2 text-xs font-medium outline-none focus:border-primary"
             >
               <option value="all">All Roles ({users.length})</option>
               <option value="customer">Customers</option>
@@ -304,14 +376,21 @@ export default function AdminUsersPage() {
         {isLoading ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="text-xs text-muted-foreground">Loading platform users...</p>
+            <p className="text-xs text-muted-foreground">
+              Loading platform users...
+            </p>
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="flex min-h-[250px] flex-col items-center justify-center p-8 text-center">
             <Users className="size-10 text-muted-foreground" />
-            <h3 className="mt-3 font-heading text-lg font-semibold">No Users Found</h3>
+
+            <h3 className="mt-3 font-heading text-lg font-semibold">
+              No Users Found
+            </h3>
+
             <p className="mt-1 text-xs text-muted-foreground">
-              No registered user matches your current search and filter criteria.
+              No registered user matches your current search and filter
+              criteria.
             </p>
           </div>
         ) : (
@@ -325,18 +404,24 @@ export default function AdminUsersPage() {
                 <div
                   key={u.id}
                   className={`flex flex-col gap-4 p-4 transition-colors sm:flex-row sm:items-center sm:justify-between sm:px-6 ${
-                    isBlocked ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-[#faf9f6]"
+                    isBlocked
+                      ? "bg-red-50/40 hover:bg-red-50/70"
+                      : "hover:bg-[#faf9f6]"
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Avatar size="default" className={isBlocked ? "ring-2 ring-red-300" : ""}>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar
+                      size="default"
+                      className={isBlocked ? "ring-2 ring-red-300" : ""}
+                    >
                       {u.image && <AvatarImage src={u.image} alt={u.name} />}
+
                       <AvatarFallback
                         className={`font-semibold ${
                           isBlocked ? "bg-red-100 text-red-700" : "text-primary"
                         }`}
                       >
-                        {u.name.slice(0, 2).toUpperCase()}
+                        {(u.name || "US").slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
 
@@ -372,13 +457,14 @@ export default function AdminUsersPage() {
                                 : "bg-amber-100 text-amber-700"
                             }`}
                           >
-                            {u.vendorApproved ? "Approved Partner" : "Pending Approval"}
+                            {u.vendorApproved
+                              ? "Approved Partner"
+                              : "Pending Approval"}
                           </span>
                         )}
 
-                        {/* Status badge: Active or Blocked */}
                         {isBlocked ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold text-red-700 border border-red-200">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-100 px-2.5 py-0.5 text-[10px] font-bold text-red-700">
                             <ShieldAlert className="size-3" />
                             Blocked
                           </span>
@@ -390,12 +476,13 @@ export default function AdminUsersPage() {
                         )}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-2">
                         <p className="truncate text-xs text-muted-foreground">
                           {u.email}
                         </p>
+
                         {isBlocked && u.banReason && (
-                          <span className="text-[11px] text-red-600 font-medium">
+                          <span className="text-[11px] font-medium text-red-600">
                             • Reason: {u.banReason}
                           </span>
                         )}
@@ -405,15 +492,15 @@ export default function AdminUsersPage() {
 
                   {/* Actions */}
                   <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                    {/* Vendor Approval toggles */}
-                    {u.role === "vendor" && (
-                      u.vendorApproved ? (
+                    {/* Vendor Approval */}
+                    {u.role === "vendor" &&
+                      (u.vendorApproved ? (
                         <Button
                           variant="outline"
                           size="sm"
                           disabled={isWorking}
-                          onClick={() => handleVendorApproval(u.id, false)}
-                          className="h-8 text-xs border-amber-300 text-amber-800 hover:bg-amber-50 cursor-pointer"
+                          onClick={() => void handleVendorApproval(u.id, false)}
+                          className="h-8 cursor-pointer border-amber-300 text-xs text-amber-800 hover:bg-amber-50"
                         >
                           Revoke Approval
                         </Button>
@@ -421,27 +508,26 @@ export default function AdminUsersPage() {
                         <Button
                           size="sm"
                           disabled={isWorking}
-                          onClick={() => handleVendorApproval(u.id, true)}
-                          className="h-8 text-xs bg-emerald-700 hover:bg-emerald-800 text-white gap-1 cursor-pointer"
+                          onClick={() => void handleVendorApproval(u.id, true)}
+                          className="h-8 cursor-pointer gap-1 bg-emerald-700 text-xs text-white hover:bg-emerald-800"
                         >
                           <CheckCircle2 className="size-3.5" />
                           Approve Vendor
                         </Button>
-                      )
-                    )}
+                      ))}
 
-                    {/* Role changer dropdown */}
+                    {/* Role changer */}
                     <div className="flex items-center gap-1.5">
                       <select
                         disabled={isWorking || u.role === "admin" || isSelf}
                         value={u.role}
                         onChange={(e) =>
-                          handleRoleChange(
+                          void handleRoleChange(
                             u.id,
-                            e.target.value as "customer" | "vendor" | "admin"
+                            e.target.value as "customer" | "vendor" | "admin",
                           )
                         }
-                        className="rounded-lg border border-[#e6dfd5] bg-white px-2.5 py-1 text-xs font-semibold text-foreground outline-none cursor-pointer disabled:opacity-50"
+                        className="cursor-pointer rounded-lg border border-[#e6dfd5] bg-white px-2.5 py-1 text-xs font-semibold text-foreground outline-none disabled:opacity-50"
                       >
                         <option value="customer">Customer</option>
                         <option value="vendor">Vendor</option>
@@ -449,14 +535,14 @@ export default function AdminUsersPage() {
                       </select>
                     </div>
 
-                    {/* Block / Unblock Action Button */}
+                    {/* Block / Unblock */}
                     {isBlocked ? (
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={isWorking || isSelf}
                         onClick={() => setPendingUnblockUser(u)}
-                        className="h-8 text-xs font-medium border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 gap-1 cursor-pointer"
+                        className="h-8 cursor-pointer gap-1 border-emerald-300 text-xs font-medium text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
                       >
                         {isWorking ? (
                           <Loader2 className="size-3 animate-spin" />
@@ -474,8 +560,12 @@ export default function AdminUsersPage() {
                           setPendingBlockUser(u);
                           setBlockReason("");
                         }}
-                        className="h-8 text-xs font-medium border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 gap-1 cursor-pointer disabled:opacity-40"
-                        title={isSelf ? "You cannot block your own account" : "Block User"}
+                        className="h-8 cursor-pointer gap-1 border-red-200 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
+                        title={
+                          isSelf
+                            ? "You cannot block your own account"
+                            : "Block User"
+                        }
                       >
                         {isWorking ? (
                           <Loader2 className="size-3 animate-spin" />
@@ -509,9 +599,13 @@ export default function AdminUsersPage() {
               <ShieldAlert className="size-5" />
               <AlertDialogTitle>Block User Account</AlertDialogTitle>
             </div>
+
             <AlertDialogDescription>
-              Are you sure you want to block <strong>{pendingBlockUser?.name}</strong> ({pendingBlockUser?.email})?
-              While blocked, they will be immediately prevented from accessing any protected platform features or APIs.
+              Are you sure you want to block{" "}
+              <strong>{pendingBlockUser?.name}</strong> (
+              {pendingBlockUser?.email})? While blocked, they will be
+              immediately prevented from accessing any protected platform
+              features or APIs.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -519,6 +613,7 @@ export default function AdminUsersPage() {
             <label className="text-xs font-medium text-muted-foreground">
               Reason for blocking (optional):
             </label>
+
             <input
               type="text"
               value={blockReason}
@@ -535,13 +630,14 @@ export default function AdminUsersPage() {
             >
               Cancel
             </AlertDialogCancel>
+
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
                 void handleConfirmBlock();
               }}
               disabled={Boolean(actionInProgress)}
-              className="bg-red-600 hover:bg-red-700 text-white gap-1.5 cursor-pointer"
+              className="cursor-pointer gap-1.5 bg-red-600 text-white hover:bg-red-700"
             >
               {actionInProgress === pendingBlockUser?.id ? (
                 <Loader2 className="size-3.5 animate-spin" />
@@ -567,9 +663,12 @@ export default function AdminUsersPage() {
               <KeyRound className="size-5" />
               <AlertDialogTitle>Unblock User Account</AlertDialogTitle>
             </div>
+
             <AlertDialogDescription>
-              Are you sure you want to restore access for <strong>{pendingUnblockUser?.name}</strong> ({pendingUnblockUser?.email})?
-              Once unblocked, they will regain access to their account and protected services immediately.
+              Are you sure you want to restore access for{" "}
+              <strong>{pendingUnblockUser?.name}</strong> (
+              {pendingUnblockUser?.email})? Once unblocked, they will regain
+              access to their account and protected services immediately.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -580,13 +679,14 @@ export default function AdminUsersPage() {
             >
               Cancel
             </AlertDialogCancel>
+
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
                 void handleConfirmUnblock();
               }}
               disabled={Boolean(actionInProgress)}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5 cursor-pointer"
+              className="cursor-pointer gap-1.5 bg-emerald-700 text-white hover:bg-emerald-800"
             >
               {actionInProgress === pendingUnblockUser?.id ? (
                 <Loader2 className="size-3.5 animate-spin" />
