@@ -21,7 +21,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ProtectedRoute allowedRoles={["admin"]}>
-      <div className="min-h-screen bg-[#faf9f6] text-foreground">
+      <div className="min-h-screen w-full bg-[#faf9f6] text-foreground">
+      <div className="mx-auto flex min-h-screen max-w-345 w-full flex-col items-center">
         {/* Mobile header */}
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background px-4 lg:hidden">
           <Link href="/" className="flex items-center gap-2" title="Go to WedPlan Home">
@@ -75,6 +76,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </footer>
           </main>
         </div>
+      </div>
       </div>
     </ProtectedRoute>
   );
