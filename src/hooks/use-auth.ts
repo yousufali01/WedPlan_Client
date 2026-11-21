@@ -14,7 +14,6 @@ export type AuthUser = {
   avatarUrl?: string | null;
   role: UserRole;
   vendorApproved?: boolean;
-  // Vendor business profile (set server-side via PATCH /api/v1/profile/vendor).
   businessName?: string;
   studioName?: string;
   phone?: string;
@@ -25,7 +24,27 @@ export type AuthUser = {
 
 export function useAuth() {
   const router = useRouter();
+
   const { data: session, isPending, error, refetch } = authClient.useSession();
+
+  // Refresh session when mobile browser becomes active again.
+  React.useEffect(() => {
+    const refreshSession = () => {
+      if (document.visibilityState === "visible") {
+        void refetch();
+      }
+    };
+
+    window.addEventListener("focus", refreshSession);
+    window.addEventListener("pageshow", refreshSession);
+    document.addEventListener("visibilitychange", refreshSession);
+
+    return () => {
+      window.removeEventListener("focus", refreshSession);
+      window.removeEventListener("pageshow", refreshSession);
+      document.removeEventListener("visibilitychange", refreshSession);
+    };
+  }, [refetch]);
 
   const rawUser = session?.user;
 

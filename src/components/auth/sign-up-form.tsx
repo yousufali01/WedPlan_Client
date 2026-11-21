@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -34,15 +34,12 @@ import { cn } from "@/lib/utils";
 
 const signUpSchema = z.object({
   name: z.string().trim().min(2, "Please enter your full name."),
-
   email: z.email("Please enter a valid email address."),
-
   password: z
     .string()
     .min(8, "Password must be at least 8 characters.")
     .regex(/[A-Z]/, "Include at least one uppercase letter.")
     .regex(/[a-z]/, "Include at least one lowercase letter."),
-
   role: z.enum(["customer", "vendor"], {
     message: "Please choose an account type.",
   }),
@@ -158,17 +155,14 @@ function GoogleIcon({ className }: { className?: string }) {
         fill="#EA4335"
         d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
       />
-
       <path
         fill="#4285F4"
         d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
       />
-
       <path
         fill="#FBBC05"
         d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
       />
-
       <path
         fill="#34A853"
         d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
@@ -182,10 +176,18 @@ function GoogleIcon({ className }: { className?: string }) {
 /* ------------------------------------------------------------------ */
 
 export function SignUpForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Keep Better Auth hook inside the component.
+  const { refetch: refetchSession } = authClient.useSession();
+
+  // Support both callbackURL and callbackUrl.
   const callbackURL =
     searchParams.get("callbackURL") || searchParams.get("callbackUrl");
+
+  /* ---------------------------------------------------------------- */
+  /* Form Configuration */
+  /* ---------------------------------------------------------------- */
 
   const {
     control,
@@ -195,7 +197,6 @@ export function SignUpForm() {
     formState: { errors, isSubmitting },
   } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
-
     defaultValues: {
       name: "",
       email: "",
@@ -210,16 +211,16 @@ export function SignUpForm() {
     name: "role",
   });
 
+  /* ---------------------------------------------------------------- */
+  /* Component State */
+  /* ---------------------------------------------------------------- */
+
   const [showPassword, setShowPassword] = React.useState(false);
-
   const [avatarPreview, setAvatarPreview] = React.useState<string | null>(null);
-
   const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
-
   const [isUploadingImage, setIsUploadingImage] = React.useState(false);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-
   const previewRef = React.useRef<string | null>(null);
 
   /* ---------------------------------------------------------------- */
@@ -230,6 +231,7 @@ export function SignUpForm() {
     return () => {
       if (previewRef.current) {
         URL.revokeObjectURL(previewRef.current);
+        previewRef.current = null;
       }
     };
   }, []);
@@ -285,7 +287,6 @@ export function SignUpForm() {
     previewRef.current = preview;
     setAvatarPreview(preview);
     setAvatarUrl(null);
-
     setIsUploadingImage(true);
 
     try {
@@ -326,11 +327,15 @@ export function SignUpForm() {
     }
 
     try {
-      const redirectQuery = callbackURL
-        ? `&redirect=${encodeURIComponent(callbackURL)}`
-        : "";
+      const redirectQuery =
+        typeof callbackURL === "string"
+          ? `&redirect=${encodeURIComponent(callbackURL)}`
+          : "";
 
-      const googleCallbackURL = `${window.location.origin}/auth/callback?role=${role}${redirectQuery}`;
+      const googleCallbackURL =
+        `${window.location.origin}/auth/callback` +
+        `?role=${encodeURIComponent(role)}` +
+        redirectQuery;
 
       const { error } = await authClient.signIn.social({
         provider: "google",
@@ -352,6 +357,26 @@ export function SignUpForm() {
   };
 
   /* ---------------------------------------------------------------- */
+  /* Resolve Registration Redirect */
+  /* ---------------------------------------------------------------- */
+
+  // Explicit string return type fixes the TypeScript null error.
+  const getRegistrationRedirect = (userRole: SignUpValues["role"]): string => {
+    const isValidCallback =
+      typeof callbackURL === "string" &&
+      callbackURL.startsWith("/") &&
+      !callbackURL.startsWith("//");
+
+    if (isValidCallback) {
+      return callbackURL;
+    }
+
+    return userRole === "vendor"
+      ? siteConfig.dashboards.vendor
+      : siteConfig.dashboards.customer;
+  };
+
+  /* ---------------------------------------------------------------- */
   /* Email and Password Registration */
   /* ---------------------------------------------------------------- */
 
@@ -362,6 +387,7 @@ export function SignUpForm() {
     }
 
     try {
+      // Create account using Better Auth.
       const { data, error } = await authClient.signUp.email({
         name: values.name.trim(),
         email: values.email.trim(),
@@ -369,6 +395,7 @@ export function SignUpForm() {
         image: avatarUrl ?? undefined,
       });
 
+      // Handle registration errors.
       if (error || !data?.user) {
         toast.error("Could not create your account", {
           description:
@@ -378,32 +405,36 @@ export function SignUpForm() {
         return;
       }
 
-      // If registered as vendor, submit the vendor application
+      // Refresh authentication session before navigation.
+      await refetchSession();
+
+      // Vendor application.
       if (values.role === "vendor") {
         try {
           const { apiRequest } = await import("@/lib/api");
-          await apiRequest("/api/v1/profile/apply-vendor", { method: "POST" });
+
+          await apiRequest("/api/v1/profile/apply-vendor", {
+            method: "POST",
+          });
         } catch (err) {
           console.error("Vendor application request:", err);
         }
       }
 
+      // Registration success.
       toast.success("Welcome to WedPlan!", {
         description: "Your account has been created successfully.",
       });
 
-      if (
-        callbackURL &&
-        callbackURL.startsWith("/") &&
-        !callbackURL.startsWith("//")
-      ) {
-        router.replace(callbackURL);
-      } else if (values.role === "vendor") {
-        router.replace(siteConfig.dashboards.vendor);
-      } else {
-        router.replace(siteConfig.dashboards.customer);
-      }
+      // Resolve a guaranteed string redirect destination.
+      const redirectTarget: string = getRegistrationRedirect(values.role);
+
+      // Full-page navigation helps ensure the latest session is loaded,
+      // including on mobile browsers.
+      window.location.replace(redirectTarget);
     } catch (error) {
+      console.error("Registration failed:", error);
+
       toast.error("Registration failed", {
         description:
           error instanceof Error
@@ -571,7 +602,6 @@ export function SignUpForm() {
                         className={cn("size-3.5", !met && "opacity-40")}
                         aria-hidden="true"
                       />
-
                       {rule.label}
                     </li>
                   );

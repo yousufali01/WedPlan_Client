@@ -65,7 +65,8 @@ function GoogleIcon({ className }: { className?: string }) {
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackURL = searchParams.get("callbackURL") || searchParams.get("callbackUrl");
+  const callbackURL =
+    searchParams.get("callbackURL") || searchParams.get("callbackUrl");
 
   const {
     register,
@@ -81,19 +82,26 @@ export function SignInForm() {
 
   const [showPassword, setShowPassword] = React.useState(false);
 
-  const { data: session, isPending } = authClient.useSession();
+  const {
+    data: session,
+    isPending,
+    refetch: refetchSession,
+  } = authClient.useSession();
 
   /* Dashboard Redirect */
 
-  const getDashboardPath = React.useCallback((user: { role?: string | null }) => {
-    if (user.role === "admin") {
-      return siteConfig.dashboards.admin;
-    }
-    if (user.role === "vendor") {
-      return siteConfig.dashboards.vendor;
-    }
-    return siteConfig.dashboards.customer;
-  }, []);
+  const getDashboardPath = React.useCallback(
+    (user: { role?: string | null }) => {
+      if (user.role === "admin") {
+        return siteConfig.dashboards.admin;
+      }
+      if (user.role === "vendor") {
+        return siteConfig.dashboards.vendor;
+      }
+      return siteConfig.dashboards.customer;
+    },
+    [],
+  );
 
   const getRedirectTarget = React.useCallback(
     (role?: string | null) => {
@@ -106,7 +114,7 @@ export function SignInForm() {
       }
       return getDashboardPath({ role });
     },
-    [callbackURL, getDashboardPath]
+    [callbackURL, getDashboardPath],
   );
 
   /* If already signed in, redirect to the appropriate dashboard or callbackURL */
@@ -121,8 +129,11 @@ export function SignInForm() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const redirectQuery = callbackURL ? `?redirect=${encodeURIComponent(callbackURL)}` : "";
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const redirectQuery = callbackURL
+        ? `?redirect=${encodeURIComponent(callbackURL)}`
+        : "";
       const socialCallbackURL = `${origin}/auth/callback${redirectQuery}`;
 
       const { error } = await authClient.signIn.social({
@@ -152,38 +163,46 @@ export function SignInForm() {
         password: values.password,
       });
 
+      // Handle authentication failure
       if (error || !data?.user) {
         toast.error("Could not sign you in", {
           description:
-            error?.message ||
-            "Please check your email and password.",
-
+            error?.message ?? "Please check your email and password.",
           action: {
             label: "Sign Up",
-            onClick: () =>
-              router.push(
-                callbackURL
-                  ? `${siteConfig.routes.signUp}?callbackURL=${encodeURIComponent(callbackURL)}`
-                  : siteConfig.routes.signUp
-              ),
+            onClick: () => {
+              const signUpUrl = new URL(
+                siteConfig.routes.signUp,
+                window.location.origin,
+              );
+
+              if (callbackURL) {
+                signUpUrl.searchParams.set("callbackURL", callbackURL);
+              }
+
+              router.push(`${signUpUrl.pathname}${signUpUrl.search}`);
+            },
           },
         });
 
         return;
       }
 
-      const userRole = (data.user as { role?: string }).role;
-      const firstName = data.user.name ? data.user.name.split(" ")[0] : "there";
+      // Extract authenticated user information
+      const user = data.user;
+      const userRole = (user as typeof user & { role?: string }).role;
+      const firstName = user.name?.trim().split(/\s+/)[0] || "there";
 
-      toast.success(
-        `Welcome back, ${firstName}!`,
-        {
-          description: "You have signed in successfully.",
-        }
-      );
+      // Notify successful authentication
+      toast.success(`Welcome back, ${firstName}!`, {
+        description: "You have signed in successfully.",
+      });
 
+      // Navigate to the appropriate destination
       router.replace(getRedirectTarget(userRole));
     } catch (error) {
+      console.error("Sign-in failed:", error);
+
       toast.error("Could not sign you in", {
         description:
           error instanceof Error
@@ -195,12 +214,11 @@ export function SignInForm() {
 
   /* ------------------------------------------------------------------ */
   /* UI */
-/* ------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------ */
 
   return (
     <section className="relative flex min-h-[calc(100dvh-4rem)] w-full items-center bg-gradient-to-b from-secondary/60 via-background to-accent/15 py-10">
       <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
-
         {/* Brand Panel */}
 
         <AuthAside
@@ -211,9 +229,7 @@ export function SignInForm() {
         {/* Sign In Card */}
 
         <div className="mx-auto w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-
           <div className="flex flex-col items-center gap-2 text-center">
-
             <div className="lg:hidden">
               <Logo />
             </div>
@@ -229,13 +245,11 @@ export function SignInForm() {
             <p className="text-sm text-muted-foreground">
               Sign in to manage your wedding plans or your vendor account.
             </p>
-
           </div>
 
           {/* Google Sign In Button */}
 
           <div className="mt-6 flex flex-col gap-4">
-
             <Button
               type="button"
               variant="outline"
@@ -247,10 +261,7 @@ export function SignInForm() {
               Continue with Google
             </Button>
 
-            <div
-              className="flex items-center gap-3"
-              aria-hidden="true"
-            >
+            <div className="flex items-center gap-3" aria-hidden="true">
               <span className="h-px flex-1 bg-border" />
 
               <span className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -259,7 +270,6 @@ export function SignInForm() {
 
               <span className="h-px flex-1 bg-border" />
             </div>
-
           </div>
 
           {/* Email Sign In Form */}
@@ -269,14 +279,10 @@ export function SignInForm() {
             noValidate
             className="mt-6 flex flex-col gap-5"
           >
-
             {/* Email */}
 
             <div className="flex flex-col gap-1.5">
-
-              <Label htmlFor="email">
-                Email address
-              </Label>
+              <Label htmlFor="email">Email address</Label>
 
               <Input
                 id="email"
@@ -289,26 +295,18 @@ export function SignInForm() {
               />
 
               {errors.email && (
-                <p
-                  className="text-xs text-destructive"
-                  role="alert"
-                >
+                <p className="text-xs text-destructive" role="alert">
                   {errors.email.message}
                 </p>
               )}
-
             </div>
 
             {/* Password */}
 
             <div className="flex flex-col gap-1.5">
-
-              <Label htmlFor="password">
-                Password
-              </Label>
+              <Label htmlFor="password">Password</Label>
 
               <div className="relative">
-
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -321,40 +319,23 @@ export function SignInForm() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowPassword((visible) => !visible)
-                  }
-                  aria-label={
-                    showPassword
-                      ? "Hide password"
-                      : "Show password"
-                  }
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                   {showPassword ? (
-                    <EyeOff
-                      className="size-4"
-                      aria-hidden="true"
-                    />
+                    <EyeOff className="size-4" aria-hidden="true" />
                   ) : (
-                    <Eye
-                      className="size-4"
-                      aria-hidden="true"
-                    />
+                    <Eye className="size-4" aria-hidden="true" />
                   )}
                 </button>
-
               </div>
 
               {errors.password && (
-                <p
-                  className="text-xs text-destructive"
-                  role="alert"
-                >
+                <p className="text-xs text-destructive" role="alert">
                   {errors.password.message}
                 </p>
               )}
-
             </div>
 
             {/* Submit Button */}
@@ -366,25 +347,19 @@ export function SignInForm() {
             >
               {isSubmitting ? (
                 <>
-                  <Loader2
-                    className="animate-spin"
-                    aria-hidden="true"
-                  />
+                  <Loader2 className="animate-spin" aria-hidden="true" />
                   Signing you in…
                 </>
               ) : (
                 "Sign in"
               )}
             </Button>
-
           </form>
 
           {/* Sign Up Link */}
 
           <p className="mt-5 border-t border-border pt-5 text-center text-sm text-muted-foreground">
-
             New to {siteConfig.name}?{" "}
-
             <Link
               href={
                 callbackURL
@@ -395,9 +370,7 @@ export function SignInForm() {
             >
               Create an account
             </Link>
-
           </p>
-
         </div>
       </div>
     </section>
