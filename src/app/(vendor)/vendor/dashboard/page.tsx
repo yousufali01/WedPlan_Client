@@ -21,6 +21,11 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
+import {
+  fetchVendorSubscription,
+  FREE_SERVICE_LIMIT,
+  type VendorSubscription,
+} from "@/lib/vendor-subscription";
 
 type Booking = {
   _id: string;
@@ -40,30 +45,7 @@ type ServiceItem = {
   category: string;
   price: number;
   availability: boolean;
-};
-
-type VendorProfile = {
-  name?: string;
-  businessName?: string;
-  studioName?: string;
-  vendorApproved?: boolean;
-  plan?: string;
-  subscriptionPlan?: string;
-  subscription?: {
-    plan?: string;
-    name?: string;
-  };
-};
-
-type Subscription = {
-  plan: string;
-  planName: string;
-  activeServices: number;
-  activeServiceLimit: number | null;
-  remainingServices: number | null;
-  status?: string;
-  isPremium?: boolean;
-  expired?: boolean;
+  status?: "pending" | "approved" | "rejected";
 };
 
 export default function VendorDashboardPage() {
@@ -71,13 +53,13 @@ export default function VendorDashboardPage() {
 
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [services, setServices] = React.useState<ServiceItem[]>([]);
-  const [subscription, setSubscription] = React.useState<Subscription | null>(
-    null,
-  );
+  const [subscription, setSubscription] =
+    React.useState<VendorSubscription | null>(null);
+
   const [isLoading, setIsLoading] = React.useState(true);
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
 
-  const vendor = user as VendorProfile | null;
+  const vendor = user;
 
   // Vendor information
   const vendorName =
@@ -85,26 +67,12 @@ export default function VendorDashboardPage() {
 
   const isApproved = vendor?.vendorApproved === true;
 
-  // Subscription information (fresh from the server, session as fallback)
-  const planName =
-    subscription?.planName ||
-    subscription?.plan ||
-    vendor?.subscription?.plan ||
-    vendor?.subscription?.name ||
-    vendor?.subscriptionPlan ||
-    vendor?.plan ||
-    "Free Plan";
+  // Subscription information
+  const planName = subscription?.planName || "Free Plan";
+  const isPremium = subscription?.isPremium === true;
+  const planLimit = isPremium ? Infinity : FREE_SERVICE_LIMIT;
 
-  const normalizedPlan = planName.toLowerCase();
-  const isPremium =
-    subscription?.isPremium !== undefined
-      ? subscription.isPremium === true
-      : normalizedPlan.includes("premium") &&
-        subscription?.status !== "cancelled";
-
-  const planLimit = subscription?.activeServiceLimit ?? (isPremium ? Infinity : 3);
-
-  // Fetch vendor data
+  // Fetch vendor dashboard data
   const fetchVendorData = React.useCallback(async () => {
     setIsLoading(true);
 
@@ -113,21 +81,33 @@ export default function VendorDashboardPage() {
         await Promise.allSettled([
           apiRequest<{ bookings: Booking[] }>("/api/v1/bookings/vendor"),
           apiRequest<{ services: ServiceItem[] }>("/api/v1/services/mine"),
-          apiRequest<{ subscription: Subscription }>(
-            "/api/v1/subscription/mine",
-          ),
+          fetchVendorSubscription(),
         ]);
 
-      if (bookingsRes.status === "fulfilled" && bookingsRes.value.bookings) {
-        setBookings(bookingsRes.value.bookings);
+      if (bookingsRes.status === "fulfilled") {
+        setBookings(bookingsRes.value.bookings || []);
+      } else {
+        console.error("Bookings fetch error:", bookingsRes.reason);
       }
 
-      if (servicesRes.status === "fulfilled" && servicesRes.value.services) {
-        setServices(servicesRes.value.services);
+      if (servicesRes.status === "fulfilled") {
+        setServices(servicesRes.value.services || []);
+      } else {
+        console.error("Services fetch error:", servicesRes.reason);
       }
 
       if (subscriptionRes.status === "fulfilled") {
-        setSubscription(subscriptionRes.value.subscription);
+        setSubscription(subscriptionRes.value);
+      } else {
+        console.error("Subscription fetch error:", subscriptionRes.reason);
+      }
+
+      if (
+        bookingsRes.status === "rejected" &&
+        servicesRes.status === "rejected" &&
+        subscriptionRes.status === "rejected"
+      ) {
+        toast.error("Unable to load dashboard data.");
       }
     } catch (error) {
       console.error("Vendor dashboard error:", error);
@@ -145,11 +125,13 @@ export default function VendorDashboardPage() {
     return () => clearTimeout(timer);
   }, [fetchVendorData]);
 
-  // Booking status update
+  // Update booking status
   const handleBookingStatus = async (
     bookingId: string,
     status: "accepted" | "rejected",
   ) => {
+    if (updatingId) return;
+
     setUpdatingId(bookingId);
 
     try {
@@ -158,17 +140,19 @@ export default function VendorDashboardPage() {
         body: JSON.stringify({ status }),
       });
 
-      toast.success(
-        status === "accepted" ? "Booking accepted!" : "Booking declined.",
-      );
-
       setBookings((prev) =>
         prev.map((booking) =>
           booking._id === bookingId ? { ...booking, status } : booking,
         ),
       );
+
+      toast.success(
+        status === "accepted"
+          ? "Booking accepted successfully!"
+          : "Booking declined successfully.",
+      );
     } catch (error) {
-      toast.error("Failed to update booking status", {
+      toast.error("Failed to update booking status.", {
         description:
           error instanceof Error ? error.message : "Please try again.",
       });
@@ -180,11 +164,13 @@ export default function VendorDashboardPage() {
   // Dynamic statistics
   const totalServices = services.length;
 
-  const activeServices =
-    subscription?.activeServices ??
-    (isApproved
-      ? services.filter((service) => service.availability).length
-      : 0);
+  const activeServices = services.filter(
+    (service) => service.availability === true,
+  ).length;
+
+  const approvedActiveServices = services.filter(
+    (service) => service.status === "approved" && service.availability === true,
+  ).length;
 
   const pendingBookings = bookings.filter(
     (booking) => booking.status === "pending",
@@ -204,8 +190,8 @@ export default function VendorDashboardPage() {
     },
     {
       label: "Approved & Active",
-      value: activeServices,
-      description: "Available services",
+      value: approvedActiveServices,
+      description: "Approved available services",
       icon: CheckCircle2,
       iconClass: "bg-emerald-100 text-emerald-700",
     },
@@ -225,7 +211,9 @@ export default function VendorDashboardPage() {
     },
   ];
 
+  // Recent bookings
   const recentBookingLimit = isPremium ? 5 : 3;
+
   const recentBookings = [...bookings]
     .sort(
       (a, b) =>
@@ -233,6 +221,7 @@ export default function VendorDashboardPage() {
         new Date(a.createdAt || 0).getTime(),
     )
     .slice(0, recentBookingLimit);
+
   const hiddenBookingsCount = Math.max(0, bookings.length - recentBookingLimit);
 
   return (
@@ -258,6 +247,7 @@ export default function VendorDashboardPage() {
                 ) : (
                   <Clock3 className="size-3" />
                 )}
+
                 {isApproved ? "Approved Partner" : "Pending Approval"}
               </span>
             </div>
@@ -295,6 +285,7 @@ export default function VendorDashboardPage() {
               <h3 className="text-sm font-semibold text-amber-900">
                 Application Under Admin Review
               </h3>
+
               <p className="mt-1 text-xs leading-5 text-amber-800">
                 Your vendor account is currently being reviewed by our
                 administration team. Once approved, your services can become
@@ -368,6 +359,7 @@ export default function VendorDashboardPage() {
                 <div className="mt-4">
                   <div className="mb-1.5 flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Service usage</span>
+
                     <span className="font-semibold text-foreground">
                       {activeServices} / {planLimit}
                     </span>
@@ -410,24 +402,6 @@ export default function VendorDashboardPage() {
               )}
             </div>
           </div>
-
-          {/* Free plan hidden count notice */}
-          {!isPremium && !isLoading && hiddenBookingsCount > 0 && (
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[#eadbb5] bg-[#fffdf7] px-4 py-3">
-              <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">
-                  {hiddenBookingsCount} more booking{hiddenBookingsCount !== 1 ? "s" : ""}
-                </span>{" "}
-                hidden on the Free Plan. Upgrade to Premium to view all.
-              </p>
-              <Link
-                href="/vendor/subscription"
-                className="shrink-0 text-xs font-semibold text-primary hover:underline"
-              >
-                Upgrade →
-              </Link>
-            </div>
-          )}
         </section>
 
         {/* Recent Bookings */}
@@ -435,13 +409,17 @@ export default function VendorDashboardPage() {
           <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-heading text-xl font-bold">Recent Bookings</h2>
+                <h2 className="font-heading text-xl font-bold">
+                  Recent Bookings
+                </h2>
+
                 {!isPremium && (
                   <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
                     Free Plan (3 Max)
                   </span>
                 )}
               </div>
+
               <p className="mt-1 text-xs text-muted-foreground">
                 Manage incoming booking requests from couples.
               </p>
@@ -569,15 +547,17 @@ export default function VendorDashboardPage() {
             )}
           </div>
 
-          {/* Free plan hidden count notice */}
+          {/* Free Plan Booking Notice */}
           {!isPremium && !isLoading && hiddenBookingsCount > 0 && (
             <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[#eadbb5] bg-[#fffdf7] px-4 py-3">
               <p className="text-xs text-muted-foreground">
                 <span className="font-semibold text-foreground">
-                  {hiddenBookingsCount} more booking{hiddenBookingsCount !== 1 ? "s" : ""}
+                  {hiddenBookingsCount} more booking
+                  {hiddenBookingsCount !== 1 ? "s" : ""}
                 </span>{" "}
                 hidden on the Free Plan. Upgrade to Premium to view all.
               </p>
+
               <Link
                 href="/vendor/subscription"
                 className="shrink-0 text-xs font-semibold text-primary hover:underline"

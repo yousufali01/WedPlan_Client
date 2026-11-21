@@ -16,6 +16,11 @@ import {
 
 import { useAuth, type AuthUser } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/api";
+import {
+  fetchVendorSubscription,
+  FREE_SERVICE_LIMIT,
+  type VendorSubscription,
+} from "@/lib/vendor-subscription";
 
 const vendorNavigation = [
   { label: "Overview", href: "/vendor/dashboard", icon: LayoutDashboard, exact: true },
@@ -33,17 +38,6 @@ function isActive(pathname: string, href: string, exact?: boolean) {
     : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-type VendorProfile = AuthUser & {
-  businessName?: string;
-  studioName?: string;
-  plan?: string;
-  subscriptionPlan?: string;
-  subscription?: {
-    plan?: string;
-    name?: string;
-  };
-};
-
 export function VendorSidebarContent({
   onNavigate,
 }: {
@@ -55,41 +49,42 @@ export function VendorSidebarContent({
   const [totalServices, setTotalServices] = React.useState(0);
   const [activeServices, setActiveServices] = React.useState(0);
   const [pendingBookings, setPendingBookings] = React.useState(0);
-  const [planLabel, setPlanLabel] = React.useState<string | null>(null);
+  const [subscription, setSubscription] = React.useState<VendorSubscription | null>(
+    null,
+  );
 
   React.useEffect(() => {
     let cancelled = false;
 
     void Promise.allSettled([
-      apiRequest<{ services: unknown[] }>("/api/v1/services/mine"),
+      apiRequest<{ services: { availability?: boolean }[] }>(
+        "/api/v1/services/mine",
+      ),
       apiRequest<{ bookings: { status?: string }[] }>("/api/v1/bookings/vendor"),
-      apiRequest<{
-        subscription: {
-          plan: string;
-          planName: string;
-          activeServices: number;
-          activeServiceLimit: number | null;
-        };
-      }>("/api/v1/subscription/mine"),
+      fetchVendorSubscription(),
     ]).then(([servicesRes, bookingsRes, subscriptionRes]) => {
       if (cancelled) return;
 
       if (servicesRes.status === "fulfilled") {
-        setTotalServices(servicesRes.value.services?.length ?? 0);
+        const services = servicesRes.value.services ?? [];
+        setTotalServices(services.length);
+        setActiveServices(
+          services.filter((service) => service.availability !== false).length,
+        );
       }
 
       if (bookingsRes.status === "fulfilled") {
         setPendingBookings(
-          bookingsRes.value.bookings.filter(
+          (bookingsRes.value.bookings ?? []).filter(
             (booking) => booking.status === "pending",
           ).length,
         );
       }
 
+      // `fetchVendorSubscription` never rejects with a malformed payload, so a
+      // rejected entry just leaves the previous (free) state in place.
       if (subscriptionRes.status === "fulfilled") {
-        const subscription = subscriptionRes.value.subscription;
-        setPlanLabel(subscription.planName || subscription.plan);
-        setActiveServices(subscription.activeServices);
+        setSubscription(subscriptionRes.value);
       }
     });
 
@@ -98,20 +93,14 @@ export function VendorSidebarContent({
     };
   }, []);
 
-  const vendor = user as VendorProfile | null;
+  const vendor = user;
 
   const vendorName =
     vendor?.businessName || vendor?.studioName || vendor?.name || "Your Studio";
 
-  const planName =
-    planLabel ||
-    vendor?.subscription?.plan ||
-    vendor?.subscription?.name ||
-    vendor?.subscriptionPlan ||
-    vendor?.plan ||
-    "Free Plan";
-
-  const isPremium = planName.toLowerCase().includes("premium");
+  const isPremium = subscription?.isPremium === true;
+  const planName = subscription?.planName || "Free Plan";
+  const usedServices = activeServices || totalServices;
 
   return (
     <div className="flex h-full flex-col rounded-2xl border border-[#e9e1d8] bg-white p-4 shadow-sm">
@@ -185,7 +174,7 @@ export function VendorSidebarContent({
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
           {isPremium
             ? "Enjoy your premium vendor benefits."
-            : `${activeServices || totalServices} of 3 free service listings used.`}
+            : `${usedServices} of ${FREE_SERVICE_LIMIT} free service listings used.`}
         </p>
 
         {!isPremium && (
