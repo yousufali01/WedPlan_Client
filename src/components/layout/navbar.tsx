@@ -102,7 +102,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
+      <div className="mx-auto flex h-16 w-full max-w-345 items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
         {/* Logo: Navigate to Home */}
         <Link
           href={siteConfig.routes.home}
