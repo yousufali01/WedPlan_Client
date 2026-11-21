@@ -8,6 +8,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig } from "@/config/site";
+import PageTransition from "@/components/animations/page-transition";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,12 +44,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
+      <body
+        className="min-h-full flex flex-col font-sans"
+        suppressHydrationWarning
+      >
         <AuthProvider>
-          <Suspense fallback={<header className="h-16 w-full border-b border-border bg-background" />}>
+          <Suspense
+            fallback={
+              <header className="h-16 w-full border-b border-border bg-background" />
+            }
+          >
             <Navbar />
           </Suspense>
-          <main className="flex-1">{children}</main>
+          <main className="flex-1">
+            <PageTransition>{children}</PageTransition>
+          </main>
           <Footer />
           <Toaster position="top-right" />
         </AuthProvider>
