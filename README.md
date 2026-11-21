@@ -1,104 +1,128 @@
 # 💍 WedPlan – Wedding Service Marketplace
 
 <p align="center">
+  A Modern Platform to Plan Your Perfect Wedding
+</p>
 
-  **A Modern Platform to Plan Your Perfect Wedding**
-
+<p align="center">
   Discover wedding services, connect with professional vendors, and manage your wedding bookings — all in one place.
+</p>
 
+<p align="center">
+  <a href="https://wedplan-client-rho.vercel.app">Live Website</a> •
+  <a href="https://github.com/yousufali01/WedPlan_Client">Frontend Repository</a> •
+  <a href="https://github.com/yousufali01/WedPlan_Server">Backend Repository</a>
 </p>
 
 ---
 
-## 🌐 Project Overview
+## 📖 About WedPlan
 
-**WedPlan** is a full-stack wedding service marketplace designed to simplify the wedding planning experience. It connects customers with professional wedding service providers through a modern, user-friendly platform.
+WedPlan is a full-stack wedding service marketplace designed to simplify the wedding planning experience. It connects customers with professional wedding service providers through a modern, responsive, and user-friendly platform.
 
-Customers can explore wedding services, compare vendors, make bookings, and complete secure payments. Vendors can manage their services and booking requests, while administrators oversee the entire marketplace.
+Customers can discover wedding services, explore vendor profiles, submit booking requests, track booking statuses, and complete secure payments.
 
-The frontend is built with **Next.js, TypeScript, Tailwind CSS, and ShadCN UI**, providing a responsive and interactive user experience.
+Vendors can create and manage their services, handle customer booking requests, and upgrade their accounts through subscription plans.
+
+Administrators can manage users, review services, monitor bookings, and oversee marketplace activities.
+
+The platform provides three role-based experiences: **Customer, Vendor, and Admin**.
 
 ## ✨ Key Features
 
 ### 👤 Customer Features
+
 - Browse and discover available wedding services.
-- Search services by keywords.
-- Filter and sort services based on relevant criteria.
+- Search services by name or keyword.
+- Filter services by category and location.
+- Sort services by price.
 - View detailed service information and vendor profiles.
-- Book services and manage booking requests.
+- Submit wedding service booking requests.
 - Track booking statuses: Pending, Accepted, Rejected, and Cancelled.
-- Complete secure payments through Stripe.
-- Manage personal profile information.
+- Cancel pending booking requests.
+- Complete payments through Stripe.
 - View booking and transaction history.
+- Manage personal profile information.
+- Access a dedicated customer dashboard.
 
 ### 🏪 Vendor Features
+
 - Access a dedicated vendor dashboard.
-- Create and manage wedding services.
+- Create and manage vendor profiles.
+- Add, edit, and delete wedding services.
 - Upload service images.
 - Submit services for administrator approval.
-- Edit and delete existing services.
-- Manage incoming booking requests.
+- View and manage customer booking requests.
 - Accept or reject booking requests.
 - Track service and booking activities.
 - Manage subscription plans.
+- Upgrade to Premium through Stripe Checkout.
+- Display a Premium badge for eligible vendors.
 
 ### 🛡️ Admin Features
+
 - Access the administrator dashboard.
 - Manage customers and vendors.
-- Review and approve pending services.
-- Manage marketplace services.
-- Monitor bookings and transactions.
-- Manage vendor access and platform activities.
+- View and manage user accounts.
+- Review pending wedding services.
+- Approve or reject submitted services.
+- Monitor marketplace services.
+- Manage bookings and transactions.
+- Oversee platform activities.
 
 ### 🔐 Authentication & Security
+
 - Email and password authentication.
 - Google OAuth authentication.
 - Better Auth integration.
-- JWT-based authentication.
+- JWT-based API authorization.
 - Role-based dashboard access.
 - Protected routes and authenticated pages.
 - Secure user session management.
-- Role-based interface and navigation.
+- Role-based navigation and interface.
 
-### 💳 Payment Experience
+### 💳 Payment & Subscription
+
 - Stripe Checkout integration.
-- Secure payment flow.
-- Premium subscription support.
-- Payment status and transaction information.
+- Secure payment experience.
+- Free and Premium vendor plans.
+- Monthly and yearly subscription options.
+- Subscription and transaction information.
+- Payment status feedback.
 
-### 🎨 UI & User Experience
-- Fully responsive design.
-- Modern and clean interface.
-- Reusable UI components.
+### 🎨 User Experience
+
+- Responsive design for desktop, tablet, and mobile.
+- Modern and reusable UI components.
 - Interactive animations.
 - Smooth navigation.
-- Loading states and error handling.
-- Toast notifications for user feedback.
-
----
+- Loading and empty states.
+- Error handling and toast notifications.
+- Form validation and user feedback.
 
 ## 🛠️ Technology Stack
 
 | Technology | Purpose |
 |---|---|
-| Next.js | Frontend Framework |
-| React.js | UI Development |
-| TypeScript | Type Safety |
-| Tailwind CSS | Styling |
-| ShadCN UI | UI Components |
+| Next.js 16 | Frontend framework |
+| React 19 | UI development |
+| TypeScript | Type safety |
+| Tailwind CSS 4 | Styling |
+| Shadcn UI | Reusable UI components |
 | Better Auth | Authentication |
-| JWT | Secure Authentication |
-| Stripe | Online Payments |
-| Framer Motion | Animations |
+| Stripe.js | Payment integration |
+| Motion | Animations |
 | Lucide React | Icons |
-| Axios / Fetch | API Communication |
+| React Hook Form | Form management |
+| Zod | Schema validation |
+| Sonner | Toast notifications |
+| Recharts | Data visualization |
+| date-fns | Date formatting |
 
----
-
-## 📁 Project Structure
+## 🏗️ Project Structure
 
 ```text
-WedPlan-Client/
+WedPlan_Client/
 │
 ├── public/
 │
@@ -123,28 +147,34 @@ WedPlan-Client/
 │   ├── types/
 │   └── utils/
 │
-├── .env.local
+├── .gitignore
 ├── next.config.ts
 ├── package.json
+├── package-lock.json
 └── README.md
 ```
 
-*Note: The structure represents the intended organization; actual folders may vary.*
-
----
+*Note: The structure is a high-level overview. Refer to the repository for the complete implementation.*
 
 ## ⚙️ Installation & Setup
+
+### Prerequisites
+
+- Node.js
+- npm
+- Git
+- Running WedPlan backend API
 
 ### 1. Clone the Repository
 
 ```bash
-git clone YOUR_FRONTEND_REPOSITORY_URL
+git clone https://github.com/yousufali01/WedPlan_Client.git
 ```
 
 ### 2. Navigate to the Project
 
 ```bash
-cd WedPlan-Client
+cd WedPlan_Client
 ```
 
 ### 3. Install Dependencies
@@ -155,13 +185,27 @@ npm install
 
 ### 4. Configure Environment Variables
 
-Create a `.env.local` file in the root directory.
+Create a `.env.local` file in the project root.
+
+Add the environment variables required by your frontend implementation. For example, if your API client reads `NEXT_PUBLIC_API_URL`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
-Add any additional public configuration required by your actual application.
+For the deployed application, use the production backend URL:
+
+```env
+NEXT_PUBLIC_API_URL=https://wedplan-server-seven.vercel.app
+```
+
+If the frontend directly uses ImgBB uploads, configure the public ImgBB API key in the frontend deployment environment as well:
+
+```env
+NEXT_PUBLIC_IMGBB_API_KEY=your_imgbb_api_key
+```
+
+**Important:** Keep only the variables actually read by your frontend code. Never expose private API keys, database credentials, Better Auth secrets, or Stripe secret keys in frontend environment variables.
 
 ### 5. Start the Development Server
 
@@ -169,53 +213,67 @@ Add any additional public configuration required by your actual application.
 npm run dev
 ```
 
-The application will be available at:
+Open the application:
 
 ```text
 http://localhost:3000
 ```
 
----
+## 📜 Available Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Create a production build |
+| `npm run start` | Start the production server |
+| `npm run lint` | Run ESLint |
 
 ## 🔗 Backend Integration
 
-WedPlan Client communicates with the Express.js backend through RESTful APIs.
+The frontend communicates with the WedPlan backend through RESTful APIs.
 
-**Backend:** `http://localhost:5000`
+**Production Backend:**
 
-The frontend integrates with backend services for:
+https://wedplan-server-seven.vercel.app
 
-- User authentication and authorization.
-- Wedding service management.
-- Booking management.
+The backend provides services for:
+
+- Authentication and authorization.
 - User and vendor management.
+- Wedding service management.
+- Booking operations.
+- Subscription management.
 - Payment processing.
 - Transaction management.
-
----
+- Administrative operations.
 
 ## 👥 User Roles
 
-| Role | Access |
+| Role | Main Responsibilities |
 |---|---|
-| Customer | Browse services and manage bookings |
-| Vendor | Manage services and booking requests |
-| Admin | Manage users, vendors, services and transactions |
+| Customer | Discover services, submit bookings, make payments, and track requests |
+| Vendor | Manage profiles, services, subscriptions, and booking requests |
+| Admin | Manage users, approve services, and oversee marketplace operations |
 
----
+## 🌐 Live Application
 
-## 🚀 Project Goals
+**Live Website:** https://wedplan-client-rho.vercel.app
 
-- Simplify the wedding planning process.
-- Connect customers with professional wedding vendors.
-- Provide a centralized wedding service marketplace.
-- Ensure secure authentication and payment processing.
-- Deliver a smooth and responsive user experience.
+**Backend API:** https://wedplan-server-seven.vercel.app
+
+## 🔗 Project Repositories
+
+- **Frontend:** https://github.com/yousufali01/WedPlan_Client
+- **Backend:** https://github.com/yousufali01/WedPlan_Server
+
+## 👨‍💻 Developer
+
+**WedPlan – Wedding Service Marketplace**
+
+Developed as a full-stack web application using modern frontend technologies.
 
 ---
 
 <p align="center">
-
-  **WedPlan – Making Every Wedding Special. ❤️**
-
+  <strong>WedPlan – Making Every Wedding Special. ❤️</strong>
 </p>
