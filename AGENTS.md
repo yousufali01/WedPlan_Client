@@ -423,3 +423,26 @@ src/
 ```
 
 Entry stays `index.js`. Unused `server.js` (ESM stub) and root `routes/index.js` (old HireLoop copy) were removed. `scripts/create-admin.js` now loads `src/(auth)/auth`.
+
+## Task: Admin "Pending Vendor Approvals" — rejected vendor reappeared (done)
+
+**Bug:** after an admin clicked Reject, the vendor instantly came back in the Pending Vendor Approvals queue. Root cause was on the server: `GET /api/v1/admin/vendors/pending` used `vendorApproved: { $ne: true }`, and rejection writes `vendorApproved: false` — which still matches that filter. "Never reviewed" and "rejected" were indistinguishable. The client's optimistic removal was then undone by its own post-action refetch.
+
+**Fix (server — `wedplan-server`):**
+
+- `src/(auth)/auth.js` — new `vendorReviewStatus: "pending" | "approved" | "rejected"` additionalField on the user (`input: false`, no default).
+- `src/(admin)/admin.js` — `PATCH /vendors/:id/approval` now records the decision: approve → `"approved"`; reject a pending vendor → `"rejected"` (exits the queue); revoke an already-approved vendor → `"pending"` (returns to the queue, which is what the Users page "Revoke Approval" should do). `GET /vendors/pending` adds `vendorReviewStatus: { $ne: "rejected" }`.
+- `src/(customer)/profile.js` — `POST /profile/apply-vendor` writes `vendorReviewStatus: "pending"`, so a rejected vendor can re-apply and re-enter the queue.
+- `src/utils/helpers.js` — `sanitizeUser()` exposes the effective `vendorReviewStatus`.
+
+**Fix (client):**
+
+- `src/app/(admin)/admin/dashboard/page.tsx` — post-action refresh now targets only the pending queue (`refreshPendingVendors`), so it cannot be skipped by the `isFetching` guard; a monotonic `pendingSeq` ref makes the latest request win over any older in-flight response. Dispatches `window` event `wedplan:pending-vendors-updated` after a decision.
+- `src/components/layout/admin-sidebar.tsx` — "N pending" badge refetches on pathname change and on that event (previously fetched once at mount, so it stayed stale).
+- `src/app/(admin)/admin/users/page.tsx` — approval/revoke there dispatches the same event.
+
+**Verified:** `scripts/verify-vendor-approval.js` (new, self-cleaning regression check) → 10/10 PASS against both a fresh server and the live one on :5000: pending → reject → gone on two consecutive refetches → re-apply → back in queue → test user deleted. `tsc --noEmit` 0 errors, `eslint src` 0 errors (11 pre-existing warnings), `npm run build` ✓ 31 routes. Live backend on port 5000 was restarted so the fix is active.
+
+**Gotchas:** backend runs as plain `node index.js` (no watch) — any server-side edit needs a restart. For local script tests against the backend, send `Origin: http://localhost:3000` (Better Auth requires an Origin header, and CORS only allows the configured frontend origins — not `localhost:5001`). Vendors rejected *before* this fix have no `vendorReviewStatus` and are treated as pending; rejecting them once now persists correctly.
+
+**Why the user still saw "3 pending" after the code fix:** the client was configured to talk to the **deployed backend** (`NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_API_BASE_URL` = `https://wedplan-server-seven.vercel.app` in both `.env` and `.env.local`), so local server edits never reached the UI; and the running `next start` process was serving a pre-fix bundle. Both `.env` files are now pointed at `http://localhost:5000` (other backend URL vars too), the client was rebuilt, and `next start -p 3000` was restarted. `NEXT_PUBLIC_*` values are inlined at **build time** — always rebuild after changing them. The deployed server still runs the old code; testing against it requires a backend redeploy. Switching backend host also means the admin must sign in again locally (session cookies are per host). Verified: client `/admin/dashboard` → 200, backend `/health` → 200, client chunks contain `http://localhost:5000` and no deployed backend URL.

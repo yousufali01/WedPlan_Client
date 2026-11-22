@@ -167,6 +167,11 @@ export default function AdminUsersPage() {
           u.id === userId ? { ...u, vendorApproved: approved } : u,
         ),
       );
+
+      // Keep the sidebar pending badge in sync with this decision too.
+      window.dispatchEvent(
+        new CustomEvent("wedplan:pending-vendors-updated"),
+      );
     } catch (err) {
       toast.error("Approval action failed", {
         description: err instanceof Error ? err.message : "Please try again.",

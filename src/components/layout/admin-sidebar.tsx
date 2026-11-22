@@ -73,24 +73,35 @@ export function AdminSidebarContent({
 
   const [pendingVendorsCount, setPendingVendorsCount] = React.useState(0);
 
+  // Badge stays in sync with the queue: refetch on every admin navigation and
+  // whenever an approve/reject decision happens on the dashboard.
   React.useEffect(() => {
     let cancelled = false;
 
-    void apiRequest<{ vendors?: unknown[]; total?: number }>(
-      "/api/v1/admin/vendors/pending"
-    )
-      .then((res) => {
-        if (cancelled) return;
-        setPendingVendorsCount(res.total ?? res.vendors?.length ?? 0);
-      })
-      .catch(() => {
-        // Silently catch in sidebar
-      });
+    const loadPendingCount = () => {
+      void apiRequest<{ vendors?: unknown[]; total?: number }>(
+        "/api/v1/admin/vendors/pending"
+      )
+        .then((res) => {
+          if (cancelled) return;
+          setPendingVendorsCount(res.total ?? res.vendors?.length ?? 0);
+        })
+        .catch(() => {
+          // Silently catch in sidebar
+        });
+    };
+
+    loadPendingCount();
+    window.addEventListener("wedplan:pending-vendors-updated", loadPendingCount);
 
     return () => {
       cancelled = true;
+      window.removeEventListener(
+        "wedplan:pending-vendors-updated",
+        loadPendingCount,
+      );
     };
-  }, []);
+  }, [pathname]);
 
   return (
     <div className="flex h-full flex-col rounded-2xl border border-[#e9e1d8] bg-white p-4 shadow-sm">

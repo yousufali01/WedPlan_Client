@@ -73,12 +73,19 @@ export default function AdminDashboardOverviewPage() {
   const isFetching = React.useRef(false);
   const isMounted = React.useRef(false);
 
+  // Latest-wins token for the approval queue: a response that started before a
+  // newer request (e.g. the refresh fired right after an approve/reject) must
+  // never overwrite fresher data.
+  const pendingSeq = React.useRef(0);
+
   // ================= FETCH ADMIN DATA =================
 
   const fetchAdminData = React.useCallback(async (showLoader = true) => {
     if (isFetching.current) return;
 
     isFetching.current = true;
+
+    const pendingRequestSeq = ++pendingSeq.current;
 
     if (showLoader) {
       setIsLoading(true);
@@ -118,7 +125,10 @@ export default function AdminDashboardOverviewPage() {
         const response = pendingRes.value;
 
         if (Array.isArray(response?.vendors)) {
-          setPendingVendors(response.vendors);
+          // Only apply if no newer queue request has started since.
+          if (pendingRequestSeq === pendingSeq.current) {
+            setPendingVendors(response.vendors);
+          }
         } else {
           errors.push("Pending vendors response format is invalid.");
         }
@@ -177,6 +187,31 @@ export default function AdminDashboardOverviewPage() {
     }
   }, []);
 
+  // ================= REFRESH APPROVAL QUEUE =================
+
+  /**
+   * Refreshes ONLY the pending vendor queue. Used right after a decision so
+   * the section always reflects the server state (and cannot be skipped by
+   * the in-flight guard of fetchAdminData).
+   */
+  const refreshPendingVendors = React.useCallback(async () => {
+    const seq = ++pendingSeq.current;
+
+    try {
+      const response = await apiRequest<PendingVendorsResponse>(
+        "/api/v1/admin/vendors/pending",
+      );
+
+      if (!isMounted.current || seq !== pendingSeq.current) return;
+
+      if (Array.isArray(response?.vendors)) {
+        setPendingVendors(response.vendors);
+      }
+    } catch {
+      // Keep the optimistic list — the next manual refresh reconciles it.
+    }
+  }, []);
+
   // ================= INITIAL DATA LOAD =================
 
   React.useEffect(() => {
@@ -220,8 +255,13 @@ export default function AdminDashboardOverviewPage() {
         prev.filter((vendor) => vendor.id !== vendorId),
       );
 
-      // Refresh remaining dashboard information.
-      void fetchAdminData(false);
+      // Pull the queue again from the server so the section can never show a
+      // rejected application again, and tell the sidebar badge to update.
+      void refreshPendingVendors();
+
+      window.dispatchEvent(
+        new CustomEvent("wedplan:pending-vendors-updated"),
+      );
     } catch (error) {
       toast.error("Failed to update vendor status.", {
         description:
