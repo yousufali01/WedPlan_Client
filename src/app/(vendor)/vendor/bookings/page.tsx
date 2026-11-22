@@ -18,6 +18,10 @@ import { toast } from "sonner";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
+import {
+  fetchVendorSubscription,
+  type VendorSubscription,
+} from "@/lib/vendor-subscription";
 
 type Booking = {
   _id: string;
@@ -37,14 +41,6 @@ type Booking = {
 };
 
 type StatusFilter = "all" | Booking["status"];
-
-type SubscriptionInfo = {
-  plan: string;
-  status: string;
-  planName?: string;
-  isPremium?: boolean;
-  expired?: boolean;
-};
 
 const statusFilters: {
   value: StatusFilter;
@@ -76,7 +72,7 @@ function statusStyle(status: Booking["status"]) {
 export default function VendorBookingsPage() {
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [subscription, setSubscription] =
-    React.useState<SubscriptionInfo | null>(null);
+    React.useState<VendorSubscription | null>(null);
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
@@ -98,9 +94,7 @@ export default function VendorBookingsPage() {
     try {
       const [bookingsRes, subRes] = await Promise.allSettled([
         apiRequest<{ bookings: Booking[] }>("/api/v1/bookings/vendor"),
-        apiRequest<{ subscription: SubscriptionInfo }>(
-          "/api/v1/subscription/mine",
-        ),
+        fetchVendorSubscription(),
       ]);
 
       if (bookingsRes.status === "fulfilled") {
@@ -110,7 +104,7 @@ export default function VendorBookingsPage() {
       }
 
       if (subRes.status === "fulfilled") {
-        setSubscription(subRes.value.subscription || null);
+        setSubscription(subRes.value);
       }
     } catch (error) {
       toast.error("Unable to load booking requests.", {
@@ -166,13 +160,8 @@ export default function VendorBookingsPage() {
     }
   };
 
-  // Subscription calculation
-  const isPremium =
-    subscription?.isPremium !== undefined
-      ? subscription.isPremium === true
-      : ["premium_monthly", "premium_yearly"].includes(
-          subscription?.plan || "",
-        ) && subscription?.status === "active";
+  // Subscription calculation (authoritative flag from `/subscription/mine`)
+  const isPremium = subscription?.isPremium === true;
 
   // Filter and sort bookings
   const allFilteredBookings = [...bookings]

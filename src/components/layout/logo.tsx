@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "@/config/site";
 import { cn } from "cn";
@@ -80,9 +81,16 @@ export function Logo({ className }: { className?: string }) {
         className
       )}
     >
-      {/* Ivory badge echoing the monogram's warm backdrop */}
-      <span className="grid size-9 place-items-center rounded-xl border border-border bg-secondary px-1">
-        <Monogram className="h-6" />
+      {/* Brand logo image (public/logo.png) */}
+      <span className="grid size-9 place-items-center overflow-hidden rounded-xl border border-border bg-secondary">
+        <Image
+          src="/logo.png"
+          alt={`${siteConfig.name} logo`}
+          width={512}
+          height={512}
+          priority
+          className="size-full object-contain"
+        />
       </span>
       <span className="font-heading text-xl font-semibold tracking-tight">
         <span className="text-primary">Wed</span>

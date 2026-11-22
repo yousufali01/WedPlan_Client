@@ -29,6 +29,10 @@ import {
 } from "@/components/ui/avatar";
 import { apiRequest } from "@/lib/api";
 import { uploadImageToImgbb, validateImageFile } from "@/lib/imgbb";
+import {
+  fetchVendorSubscription,
+  type VendorSubscription,
+} from "@/lib/vendor-subscription";
 
 type VendorProfile = {
   id?: string;
@@ -83,6 +87,8 @@ export default function VendorProfilePage() {
   const { user, refetch } = useAuth();
 
   const [profile, setProfile] = React.useState<VendorProfile | null>(null);
+  const [subscription, setSubscription] =
+    React.useState<VendorSubscription | null>(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [form, setForm] = React.useState<ProfileForm>(EMPTY_FORM);
@@ -108,6 +114,12 @@ export default function VendorProfilePage() {
   React.useEffect(() => {
     const timer = setTimeout(() => {
       void fetchProfile();
+      // Authoritative plan state (sidebar/dashboard read the same endpoint).
+      void fetchVendorSubscription()
+        .then(setSubscription)
+        .catch(() => {
+          // Keep the free fallback — card still renders.
+        });
     }, 0);
     return () => clearTimeout(timer);
   }, [fetchProfile]);
@@ -118,14 +130,18 @@ export default function VendorProfilePage() {
     vendor?.name ||
     "Your Studio";
 
+  // Prefer the authoritative `/subscription/mine` state (same source as the
+  // sidebar + dashboard); session fields are only a fallback for old servers.
   const planName =
+    subscription?.planName ||
     vendor?.subscription?.plan ||
     vendor?.subscription?.name ||
     vendor?.subscriptionPlan ||
     vendor?.plan ||
     "Free Plan";
 
-  const isPremium = planName.toLowerCase().includes("premium");
+  const isPremium =
+    subscription?.isPremium ?? planName.toLowerCase().includes("premium");
   const isApproved = vendor?.vendorApproved === true;
   const avatarUrl = vendor?.image || vendor?.avatarUrl;
 
