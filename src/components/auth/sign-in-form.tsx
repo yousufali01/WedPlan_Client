@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { getAppOrigin } from "@/lib/app-origin";
 import { siteConfig } from "@/config/site";
 
 /* ------------------------------------------------------------------ */
@@ -129,8 +130,9 @@ export function SignInForm() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : "";
+      // Always use a backend-trusted frontend origin (Vercel preview URLs are
+      // not trusted and used to dump mobile users on the backend domain).
+      const origin = getAppOrigin();
       const redirectQuery = callbackURL
         ? `?redirect=${encodeURIComponent(callbackURL)}`
         : "";
@@ -138,7 +140,7 @@ export function SignInForm() {
 
       const { error } = await authClient.signIn.social({
         provider: "google",
-        callbackURL: socialCallbackURL || `${window.location.origin}/dashboard`
+        callbackURL: socialCallbackURL,
       });
 
       if (error) {

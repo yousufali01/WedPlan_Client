@@ -448,3 +448,20 @@ Entry stays `index.js`. Unused `server.js` (ESM stub) and root `routes/index.js`
 **Why the user still saw "3 pending" after the code fix:** the client was configured to talk to the **deployed backend** (`NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_API_BASE_URL` = `https://wedplan-server-seven.vercel.app` in both `.env` and `.env.local`), so local server edits never reached the UI; and the running `next start` process was serving a pre-fix bundle. Both `.env` files are now pointed at `http://localhost:5000` (other backend URL vars too), the client was rebuilt, and `next start -p 3000` was restarted. `NEXT_PUBLIC_*` values are inlined at **build time** — always rebuild after changing them. The deployed server still runs the old code; testing against it requires a backend redeploy. Switching backend host also means the admin must sign in again locally (session cookies are per host). Verified: client `/admin/dashboard` → 200, backend `/health` → 200, client chunks contain `http://localhost:5000` and no deployed backend URL.
 
 **Pushed and deployed (production):** server commit `58ce863` (WedPlan_Server) → `vercel --prod` → `https://wedplan-server-seven.vercel.app` (`dpl_GMhjUohgfJ32vLont8atN3jnwCtU`); client commit `a2cf024` (WedPlan_Client) → `vercel --prod` → `https://wedplan-client-rho.vercel.app` (`dpl_GN9reKhpzkJM9faGaNbbezEaDRkQ`). Deployed server verified live: `/health` 200, admin login 200, `GET /api/v1/admin/vendors/pending` 200 with the new `vendorReviewStatus` field (2 pending at check time). Deployed client `/admin/dashboard` → 200. Note: Vercel env vars are separate from the gitignored local `.env*`, so the deployed client correctly keeps using the deployed backend URL.
+
+## Task: Mobile login landed on "Welcome to WedPlan Server!" (frontend-only fix)
+
+**Symptom:** on phones, tapping login took the browser to the backend deployment root instead of the frontend sign-in flow; email/social sign-in could not complete. Desktop was fine.
+
+**Root causes:**
+
+- `src/lib/auth-client.ts` set `baseURL: NEXT_PUBLIC_API_URL` (the **backend** domain). Better Auth's `redirectPlugin` navigates with `window.location.href = response.url`, so any auth redirect/error landed on the backend root. Cross-site session cookies are also blocked by mobile Safari / in-app browsers.
+- OAuth callbacks were built from raw `window.location.origin`. The backend's `trustedOrigins` only contains the stable frontend domain + localhost; a phone opening a Vercel preview/deployment alias got `403 INVALID_CALLBACK_URL` (verified: stable alias callback → 200 Google URL; preview alias callback → 403).
+
+**Fix (frontend only):**
+
+- `src/lib/auth-client.ts` — **removed** the explicit `baseURL`; auth now stays same-origin (`/api/auth/*`) and `next.config.ts` already rewrites that to `AUTH_SERVER_URL`. Session cookies become first-party and no auth redirect can reach the backend domain. Keep it this way — do not reintroduce `NEXT_PUBLIC_API_URL` here.
+- `src/lib/app-origin.ts` (new) — `getAppOrigin()` maps any `*.vercel.app` host to the canonical/trusted `https://wedplan-client-rho.vercel.app`, keeps localhost local, passes custom domains through.
+- `sign-in-form.tsx` / `sign-up-form.tsx` — Google `callbackURL` now uses `getAppOrigin()`, with the bogus `|| window.location.origin + "/dashboard"` fallback removed.
+
+**Verified:** `tsc --noEmit` 0 errors, `eslint src` 0 errors (11 pre-existing warnings), `npm run build` ✓ 31 routes. Local same-origin flow via `http://localhost:3000/api/auth/*`: email sign-in → 200 with cookie set by the **frontend** host, `get-session` → 200 (admin role), `token` → 200 JWT. Existing rewrite in production also verified (`https://wedplan-client-rho.vercel.app/api/auth/get-session` → 200).

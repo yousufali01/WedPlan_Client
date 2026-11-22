@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { getAppOrigin } from "@/lib/app-origin";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -332,14 +333,16 @@ export function SignUpForm() {
           ? `&redirect=${encodeURIComponent(callbackURL)}`
           : "";
 
+      // Must be a backend-trusted origin, even when the phone opened the app
+      // through a Vercel preview/deployment URL.
       const googleCallbackURL =
-        `${window.location.origin}/auth/callback` +
+        `${getAppOrigin()}/auth/callback` +
         `?role=${encodeURIComponent(role)}` +
         redirectQuery;
 
       const { error } = await authClient.signIn.social({
         provider: "google",
-        callbackURL: googleCallbackURL ||`${window.location.origin}/dashboard`,
+        callbackURL: googleCallbackURL,
         newUserCallbackURL: googleCallbackURL,
       });
 
